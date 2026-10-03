@@ -1,0 +1,6 @@
+node_modules/
+scratch/
+dist/stills/
+dist/.seg*
+dist/.audio.wav
+dist/range.mp4
