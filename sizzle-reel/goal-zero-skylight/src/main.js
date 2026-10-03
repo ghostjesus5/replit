@@ -256,7 +256,7 @@ const SHOTS = [
     S.p1 = { x: 7.6, z: -3.0, ry: -1.9 };
   } },
   { a: 48, b: 50, name: 'jobsite', f(t, S) {
-    S.camp = 0; S.job = 1;
+    S.camp = 0; S.job = 1; S.lum = 0.5; S.exposure = 0.92;
     const k = eio2(seg(t, 48, 50));
     S.pos = orbitPos(V(0, 0, 0), lerp(15.5, 14.5, k), lerp(52, 64, k), 4.6); S.tgt = V(-1.5, 3.6, -2); S.fov = 38;
     S.p1 = { x: -2.6, z: 4.6, ry: 2.2 };
