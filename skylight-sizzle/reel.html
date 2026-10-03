@@ -1,0 +1,56 @@
+<meta charset="utf-8">
+<title>Skylight Sizzle Reel</title>
+<style>
+/*@FONTS*/
+:root{--n1:#07080d;--n2:#11141e;--n3:#262c40;--lime:#c3d63a;--ink:#121317;--mut:#a3aab9;--fc:"Barlow Condensed","Arial Narrow",Arial,sans-serif;--fb:"Barlow",Arial,sans-serif;--fm:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--n1);color:#fff}
+body{font-family:var(--fb);-webkit-font-smoothing:antialiased;padding:20px 16px 48px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:16px}
+.top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.top h1{font:800 26px var(--fc);letter-spacing:.08em;text-transform:uppercase;margin:0}
+.top h1 b{font-weight:500}
+.top .tag{font:500 12px var(--fm);letter-spacing:.18em;text-transform:uppercase;color:var(--mut);padding-left:16px;border-left:1px solid var(--n3)}
+.frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#000;border:1px solid var(--n3)}
+.frame:fullscreen{border:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ctrl{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ctrl button{font:600 13px var(--fb);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--n2);border:1px solid var(--n3);border-radius:4px;padding:10px 14px;cursor:pointer;min-height:40px}
+.ctrl button:hover{border-color:var(--mut)}
+.ctrl button.pri{background:var(--lime);color:var(--ink);border-color:var(--lime);min-width:92px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.ctrl .time{font:500 14px var(--fm);color:var(--mut);min-width:110px}
+.ctrl input[type=range]{flex:1 1 220px;min-width:0;accent-color:var(--lime)}
+.chap{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.chap button{width:100%;text-align:left;font:400 13px var(--fb);color:var(--mut);background:transparent;border:1px solid var(--n3);border-radius:4px;padding:10px 12px;cursor:pointer;display:grid;gap:2px}
+.chap button b{font-weight:600;color:#fff}
+.chap button span{font:500 12px var(--fm)}
+.chap button[aria-current="true"]{border-color:var(--lime)}
+.chap button:hover{border-color:var(--mut)}
+.note{font-size:13px;color:var(--mut);margin:0;line-height:1.5;max-width:76ch}
+.bigplay[hidden]{display:none}
+.bigplay{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:rgba(7,8,13,.3);border:0;cursor:pointer;padding:0}
+.bigplay span{font:700 clamp(14px,2vw,22px) var(--fc);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:var(--lime);padding:.9em 1.6em;border-radius:4px}
+html.cap body{padding:0;background:#000}
+html.cap .top,html.cap .ctrl,html.cap .chap,html.cap .note,html.cap .bigplay{display:none}
+html.cap .wrap{max-width:none;display:block}
+html.cap .frame{width:1920px;height:1080px;border:0;aspect-ratio:auto}
+</style>
+<main class="wrap">
+  <header class="top"><h1><b>Goal</b>Zero Skylight</h1><span class="tag">Sizzle reel · 1:00 · real-time 3D</span></header>
+  <div class="frame" id="frame">
+    <canvas id="cv" width="1920" height="1080" aria-label="Goal Zero Skylight sizzle reel"></canvas>
+    <button class="bigplay" id="bigplay" type="button"><span id="bigplayt">Play with sound</span></button>
+  </div>
+  <div class="ctrl">
+    <button class="pri" id="play" type="button">Play</button>
+    <span class="time" id="time">0:00 / 1:00</span>
+    <input type="range" id="scrub" min="0" max="60" step="0.01" value="0" aria-label="Scrub timeline">
+    <button id="hq" type="button" aria-pressed="false">Preview res</button>
+    <button id="snd" type="button" aria-pressed="true">Sound on</button>
+    <button id="fs" type="button">Full screen</button>
+  </div>
+  <ol class="chap" id="chap"></ol>
+  <p class="note">Rendered live in WebGL: the light, the campsite and the camera are all real-time 3D, and the soundtrack is synthesized in your browser. Playback renders at half resolution so it keeps up; pause or scrub for a full-resolution frame, or switch to full res on a fast GPU. The 1080p master MP4 is in dist/.</p>
+</main>
+<script>/*@BUNDLE*/</script>

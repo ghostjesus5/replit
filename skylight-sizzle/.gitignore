@@ -1,0 +1,4 @@
+node_modules/
+dist/stills/
+dist/.*
+build/
