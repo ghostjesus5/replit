@@ -56,7 +56,7 @@ async function segment(browser, idx, f0, f1) {
   const out = path.join(DIST, `.cseg${idx}.mp4`);
   const t0 = Date.now();
   await run(['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-tune', 'grain', '-pix_fmt', 'yuv420p', '-r', String(FPS), out],
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS), out],
   async stdin => {
     for (let n = f0; n < f1; n++) {
       const buf = await compose(page, n);
