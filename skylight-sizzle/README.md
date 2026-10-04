@@ -7,6 +7,17 @@ A 60-second hero film for the Skylight telescoping area light. The product, the 
 - `python3 build.py` bundles `src/` with esbuild and inlines the fonts and photos into `index.html`. Run `npm install` first.
 - `node render.mjs` exports the master frame by frame through headless Chromium and ffmpeg. `--stills 9.2,31.5` writes PNG stills. A full render took about 65 minutes on 4 CPU cores with software WebGL. Any machine with a GPU is much faster.
 
+## Path-traced version
+
+`dist/goalzero-skylight-sizzle-60s-cycles.mp4` is the same film with every 3D frame path-traced in Blender Cycles instead of drawn in WebGL: same edit, camera moves, type, callouts and score, at 1920x1080, 24 fps. The light is physical. Six area lights at 3250K do all the work, the haze is real volumetric scattering, and the camera has real depth of field and motion blur. The grade is shot-matched in `cycles/look.py`.
+
+The pipeline lives in `cycles/`. It needs Python 3.11 with `pip install bpy==5.0.1 OpenEXR scipy pillow numpy`, plus Playwright and ffmpeg for the browser steps.
+
+1. `node cycles/export.mjs` pulls the film's geometry (`data/scene.glb`) and every moving part, camera and light state per frame (`data/frames.json`) out of `index.html`. Both are committed, so this step only reruns if the WebGL film changes.
+2. `python3 cycles/build_scene.py` builds `skylight.blend` in about 15 seconds. It sets up Cycles materials for the product, an 8K procedural night sky with the Milky Way and point stars, terrain, a 55,000-patch meadow trampled short around the rig, 1,100 spruces, stones, rain, and a haze volume.
+3. `sh cycles/render_all.sh` renders, in blocks of 96 frames. Each block gets the main pass (1280x720, 10 samples, OpenImageDenoise), a separate low-res haze pass, and `post.py`, which adds the haze, upscales to 1080p, and applies lens glare, chromatic aberration, vignetting, exposure, white balance and AgX. The script is restartable and skips anything already on disk. A full render takes about 5 hours on 4 CPU cores. A machine with an RTX GPU would do it in minutes.
+4. `node cycles/composite.mjs` lays the type, callouts, letterbox, flares and grain over the plates, renders the score, and encodes the master. `--stills 9.2,31.5` writes review frames.
+
 ## Concept
 
 **Raise your own sky.** The sun sets on schedule. Your night doesn't have to end with it. The film starts in the dark, fires the Skylight one LED at a time, then proves every claim on the product page with something you can see: the mast climbing to 12 ft, the light reaching 300 ft, the petals aiming, rain falling through the beam.

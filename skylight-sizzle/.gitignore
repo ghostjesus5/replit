@@ -2,3 +2,11 @@ node_modules/
 dist/stills/
 dist/.*
 build/
+cycles/frames/
+cycles/plates/
+cycles/lookdev/
+cycles/__pycache__/
+cycles/*.blend
+cycles/*.blend1
+cycles/data/night_sky.exr
+dist/stills-cycles/

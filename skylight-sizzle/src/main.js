@@ -4,6 +4,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { materials, makeSkylight, makeYeti, makeCable, makeCase, D } from './product.js';
 import { makeWorld } from './world.js';
 import { makeOverlay, W, H } from './overlay.js';
@@ -13,7 +15,7 @@ import { player } from './player.js';
 import { renderAudio } from './audio.js';
 
 const SRC = { beach: '@@IMG:beach-camp.jpg@@', night: '@@IMG:night-petals.jpg@@' };
-const CAP = location.hash.startsWith('#capture');
+const CAP = location.hash.startsWith('#capture') || location.hash.startsWith('#export') || location.hash.startsWith('#plates');
 
 // Film grade in display space: gentle S-curve, cool lifted blacks, split tone, radial CA, vignette.
 const Grade = {
@@ -98,6 +100,30 @@ async function boot() {
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(Grade); composer.addPass(grade);
 
+  // Stable names for the Cycles export: every node and material gets one.
+  const ledMerged = sky.petals.map((p, k) => {
+    const m4 = new THREE.Matrix4(), geos = [];
+    for (let j = 0; j < 28; j++) { p.leds.getMatrixAt(j, m4); geos.push(p.leds.geometry.clone().applyMatrix4(m4)); }
+    const mesh = new THREE.Mesh(mergeGeometries(geos), p.ledMat); mesh.visible = false; p.pg.add(mesh);
+    return mesh;
+  });
+  Object.entries(M).forEach(([k, m]) => { m.name = k; });
+  sky.root.name = 'skylight'; sky.head.name = 'head';
+  sky.petals.forEach((p, k) => {
+    p.pg.name = `petal${k}_pivot`; p.housing.name = `petal${k}_housing`; p.lens.name = `petal${k}_lens`; p.leds.name = `petal${k}_ledsinst`;
+    ledMerged[k].name = `petal${k}_leds`; p.beam.name = `petal${k}_beam`; p.lensMat.name = `lens${k}`; p.ledMat.name = `led${k}`;
+  });
+  cable.pulseMat.name = 'pulse'; box.latchMat.name = 'latch';
+  const nameAll = (root, pre) => {
+    let i = 0;
+    root.traverse(o => {
+      if (!o.name) o.name = `${pre}_${i++}`;
+      const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+      for (const m of mats) if (!m.name) m.name = `${pre}_${m.type.replace('Material', '').toLowerCase()}_${m.color ? m.color.getHexString() : 'x'}`;
+    });
+  };
+  [[sky.root, 'sky'], [yeti.root, 'yeti'], [cable.root, 'cable'], [box.root, 'case'], [world.camp, 'camp'], [world.people, 'people']].forEach(([r, n]) => nameAll(r, n));
+
   const O = makeOverlay(cv, camera);
   const ctx = { sky, yeti, cable, box, world, camera, D, IMG, THREE, studio };
   const tv = new THREE.Vector3(), up = new THREE.Vector3();
@@ -159,6 +185,62 @@ async function boot() {
     post(t, O, S, ctx);
     O.grain(t, S.grain, CAP);
   }
+
+  // ---- Cycles pipeline: scene export, per-frame state export, and plate compositing ----
+  const stateOf = t => {
+    t = cl(t, 0, DUR - 1e-4);
+    const sh = SHOTS.find(s => t >= s.a && t < s.b) || SHOTS[SHOTS.length - 1], S = defaults();
+    sh.scene(t, S, ctx); apply(S, t); box.root.updateMatrixWorld(true); sky.root.updateMatrixWorld(true);
+    return { sh, S };
+  };
+  window.__exportGLB = async () => {
+    stateOf(13);
+    const hidden = [];
+    const hide = o => { if (o.visible) { o.visible = false; hidden.push(o); } };
+    sky.petals.forEach((p, k) => { hide(p.leds); hide(p.beam); ledMerged[k].visible = true; });
+    cable.root.traverse(o => { if (o.material === cable.pulseMat) hide(o); });
+    const shown = [box.root, world.people, world.camp, yeti.root, cable.root].filter(o => !o.visible); shown.forEach(o => (o.visible = true));
+    cable.leds.forEach(l => (l.visible = true));
+    const glb = await new GLTFExporter().parseAsync([sky.root, yeti.root, cable.root, box.root, world.camp, world.people], { binary: true, onlyVisible: true });
+    hidden.forEach(o => (o.visible = true)); ledMerged.forEach(m => (m.visible = false)); shown.forEach(o => (o.visible = false));
+    const u8 = new Uint8Array(glb); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
+  const tracked = [];
+  [sky.root, box.root].forEach(r => r.traverse(o => { if ((o.isMesh && !o.isInstancedMesh && !/_beam$/.test(o.name)) || /_pivot$/.test(o.name)) tracked.push(o); }));
+  const r5 = v => Math.round(v * 1e5) / 1e5;
+  window.__exportFrames = (fps = 24, f0 = 0, f1 = Math.round(DUR * fps)) => {
+    const frames = [];
+    for (let f = f0; f < f1; f++) {
+      const t = f / fps, { sh, S } = stateOf(t);
+      const m = {};
+      for (const o of tracked) m[o.name] = o.matrixWorld.elements.map(r5);
+      const c = S.cam;
+      frames.push({
+        f, t: r5(t), shot: SHOTS.indexOf(sh), m,
+        cam: { m: camera.matrixWorld.elements.map(r5), fov: c.fov, shift: c.shift || [0, 0], near: c.near ?? .1, target: tv.toArray().map(r5) },
+        S: Object.fromEntries(Object.entries(S).filter(([k]) => k !== 'cam' && k !== 'bloom')),
+        headY: r5(sky.head.getWorldPosition(new THREE.Vector3()).y),
+      });
+    }
+    return JSON.stringify({ fps, names: tracked.map(o => o.name), frames });
+  };
+  // Composite the 2D layer over a path-traced plate for time t.
+  const plates = {};
+  window.__composite = async (t, url, flare = .35) => {
+    const { sh, S } = stateOf(t);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    if (S.three && url) {
+      const im = plates[url] || (plates[url] = new Image()); if (!im.src) im.src = url; await im.decode(); delete plates[url];
+      g.drawImage(im, 0, 0, W, H);
+    } else { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
+    S.flare *= flare;
+    pre(t, O, S, ctx);
+    sh.ui && sh.ui(t, O, S, ctx);
+    post(t, O, S, ctx);
+    O.grain(t, S.grain * .8, false);
+    return cv.toDataURL('image/jpeg', .95);
+  };
 
   window.__DUR = DUR;
   window.__renderAudio = () => renderAudio(DUR);
