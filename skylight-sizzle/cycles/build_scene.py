@@ -564,6 +564,45 @@ def build_rain():
     return ob
 
 
+def tent_fabric():
+    """Turn the smooth tent domes into pitched nylon: subdivide, pull the fly in between the poles (none under them,
+    most at mid-height), and add fine wrinkles."""
+    bpy.context.view_layer.update()
+    rng = np.random.default_rng(4)
+    tents = [o for o in bpy.data.objects if o.name.startswith('camp_') and o.type == 'MESH' and o.material_slots
+             and o.material_slots[0].material and o.material_slots[0].material.name.startswith('fab_') and o.dimensions.x > 1.5]
+    poles = [o for o in bpy.data.objects if o.name.startswith('camp_') and o.type == 'MESH' and o.material_slots
+             and o.material_slots[0].material and o.material_slots[0].material.name == 'steel_dark' and min(o.dimensions) < 0.05 and max(o.dimensions) > 1.5]
+    for t in tents:
+        bm = bmesh.new(); bm.from_mesh(t.data)
+        bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=2, use_grid_fill=True, smooth=0.6)
+        bm.to_mesh(t.data); bm.free()
+        mw = t.matrix_world; inv = mw.inverted()
+        W = np.array([tuple(mw @ v.co) for v in t.data.vertices])
+        c = W.mean(0); c[2] = W[:, 2].min(); top = W[:, 2].max() - c[2]
+        # pole azimuths from the arcs whose centre is near this tent
+        az = []
+        for p in poles:
+            P = np.array([tuple(p.matrix_world @ v.co) for v in p.data.vertices])
+            if np.linalg.norm(P[:, :2].mean(0) - c[:2]) > 1.0:
+                continue
+            d = P[:, :2] - P[:, :2].mean(0); ev = np.linalg.eigh(d.T @ d)[1][:, -1]
+            az.append(math.atan2(ev[1], ev[0]))
+        rel = W - c; phi = np.arctan2(rel[:, 1], rel[:, 0]); h = np.clip(rel[:, 2] / max(top, 1e-3), 0, 1)
+        dpole = np.min([np.abs(np.sin(phi - a)) for a in az], axis=0) if az else np.zeros(len(W))
+        sag = 0.16 * dpole ** 1.3 * np.sin(np.pi * np.clip(h * 1.1, 0, 1)) ** 1.1
+        ph = rng.uniform(0, 6.28, 4)
+        wr = 0.011 * (np.sin(rel[:, 0] * 23 + rel[:, 2] * 11 + ph[0]) * np.sin(rel[:, 1] * 19 + ph[1]) + 0.6 * np.sin(rel[:, 0] * 47 + rel[:, 1] * 41 + ph[2]))
+        rad = np.linalg.norm(rel, axis=1, keepdims=True); n = rel / np.maximum(rad, 1e-6)
+        W2 = W - n * (sag * np.maximum(rad[:, 0], 0) * 0.9 + wr)[:, None] * (h > 0.02)[:, None]
+        for v, w in zip(t.data.vertices, W2):
+            v.co = inv @ Vector(w)
+        for poly in t.data.polygons:
+            poly.use_smooth = True
+        t.data.update()
+        print('tent', t.name, 'poles', len(az))
+
+
 def build_stones():
     """A few hundred small stones and pebbles pressed into the trampled ground around the rig."""
     rng = random.Random(23)
@@ -737,6 +776,13 @@ def main():
 
     mats = build_materials()
     assign_materials(mats)
+    # The WebGL film's people are capsule stand-ins; path-traced they read as mannequins, so they stay out.
+    for o in [o for o in bpy.data.objects if o.name.startswith('people_')]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    tent_fabric()
+    cooler = next((o for o in bpy.data.objects if o.material_slots and o.material_slots[0].material == mats['cooler']), None)
+    if cooler:   # molded edges instead of a CG cube
+        bv = cooler.modifiers.new('bevel', 'BEVEL'); bv.width = 0.025; bv.segments = 4; bv.limit_method = 'ANGLE'
 
     # LED order attribute: hub-to-tip sweep, two rows, from each LED's position along the petal.
     for k in range(6):
