@@ -9,7 +9,7 @@ A 60-second hero film for the Skylight telescoping area light. The product, the 
 
 ## Path-traced version
 
-`dist/goalzero-skylight-sizzle-60s-cycles.mp4` is the same film with every 3D frame path-traced in Blender Cycles instead of drawn in WebGL: same edit, camera moves, type, callouts and score. It's 1920x1080 at 24 fps, H.264 (CRF 18) with 320 kbps AAC, -13.1 LUFS integrated, -0.4 dB peak. At 124 MB it's over GitHub's 100 MB file limit, so it isn't committed here. Keep it in Drive or another file host, or add it with Git LFS. The light is physical. Six area lights at 3250K do all the work, the haze is real volumetric scattering, and the camera has real depth of field and motion blur. The grade is shot-matched in `cycles/look.py`.
+`dist/goalzero-skylight-sizzle-60s-cycles.mp4` is the same film with every 3D frame path-traced in Blender Cycles instead of drawn in WebGL: same edit, camera moves, type, callouts and score. It's 1920x1080 at 24 fps, H.264 (CRF 18) with 320 kbps AAC, -13.1 LUFS integrated, -0.4 dB peak. At 124 MB it's over GitHub's 100 MB file limit, so it's committed as two parts. Rejoin them with `cat dist/goalzero-skylight-sizzle-60s-cycles.mp4.part* > dist/goalzero-skylight-sizzle-60s-cycles.mp4`, and `shasum -a 256 -c dist/goalzero-skylight-sizzle-60s-cycles.mp4.sha256` (run from `dist/`) confirms the file is bit-identical. The light is physical. Six area lights at 3250K do all the work, the haze is real volumetric scattering, and the camera has real depth of field and motion blur. The grade is shot-matched in `cycles/look.py`.
 
 The pipeline lives in `cycles/`. It needs Python 3.11 with `pip install bpy==5.0.1 OpenEXR scipy pillow numpy`, plus Playwright and ffmpeg for the browser steps.
 
