@@ -116,11 +116,11 @@ function drawJoseph(g, legs) {
   g.fillCircle(113, 65, 0.9);
   // saddle blanket. The apologetics are stitched right on.
   g.fillStyle(0x9b2a2a);
-  g.fillRoundedRect(20, 58, 56, 30, 4);
+  g.fillRoundedRect(12, 58, 54, 30, 4);
   g.fillStyle(0xd9b44a);
-  g.fillRect(20, 84, 56, 3);
-  g.fillRect(20, 58, 56, 2);
-  strokeText(g, 'HORSE', 44, 71, 10, 0xffe9a0, 2.2);
+  g.fillRect(12, 84, 54, 3);
+  g.fillRect(12, 58, 54, 2);
+  strokeText(g, 'HORSE', 36, 71, 9, 0xffe9a0, 2.2);
   // near legs
   [0, 2].forEach((i) => {
     const [hx, hy] = hips[i];
