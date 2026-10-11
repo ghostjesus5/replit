@@ -5,6 +5,8 @@ import TitleScene from './scenes/TitleScene.js';
 import GameScene from './scenes/GameScene.js';
 import UIScene from './scenes/UIScene.js';
 import MapScene from './scenes/MapScene.js';
+import StoryScene from './scenes/StoryScene.js';
+import { initAudio } from './audio.js';
 
 const game = new Phaser.Game({
   // ?headless runs the game with no drawing at all, for fast automated level tests
@@ -24,8 +26,10 @@ const game = new Phaser.Game({
     arcade: { gravity: { y: PLAYER.gravity }, debug: DEBUG.physics },
   },
   input: { activePointers: 3 },
-  scene: [BootScene, TitleScene, MapScene, GameScene, UIScene],
+  scene: [BootScene, TitleScene, MapScene, StoryScene, GameScene, UIScene],
 });
+
+initAudio(game);
 
 // handy for poking at things from the browser console during playtests
 window.__game = game;
