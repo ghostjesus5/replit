@@ -93,7 +93,7 @@ export function initAudio(game) {
     A.ctx = ctx;
 
     A.master = ctx.createGain();
-    A.master.gain.value = A.muted ? 0 : 0.9;
+    A.master.gain.value = A.muted ? 0 : 1.15;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
@@ -224,7 +224,7 @@ export function initAudio(game) {
     if (!A.ctx) return;
     const t = A.ctx.currentTime;
     A.master.gain.cancelScheduledValues(t);
-    A.master.gain.setTargetAtTime(A.muted ? 0 : 0.9, t, 0.03);
+    A.master.gain.setTargetAtTime(A.muted ? 0 : 1.15, t, 0.03);
   }
 
   // ---------------------------------------------------------------- unlock (mobile autoplay rules)
