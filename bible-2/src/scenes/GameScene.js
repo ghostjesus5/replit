@@ -31,6 +31,20 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.level = buildLevel(this.levelDef);
+    // Skins let a level swap the hero, guns, enemies and pickups without new code.
+    // levelDef.hero = { prefix, gun, laserText }  (textures `${prefix}0..3`, `${prefix}Jump`, anim `${prefix}Gallop`)
+    // levelDef.enemySkins = { serpent: 'bomhorse' } (textures `${skin}0/1`, anim `${skin}`)
+    // levelDef.pickupSkins = { loaves: { tex: 'seerstone', text: 'SEER STONE' } }
+    const hero = this.levelDef.hero;
+    this.skin = {
+      idle: hero ? `${hero.prefix}0` : 'hero0',
+      run: hero ? `${hero.prefix}Gallop` : 'gallop',
+      jump: hero ? `${hero.prefix}Jump` : 'heroJump',
+      gun: hero?.gun || 'minigun',
+      laserText: hero?.laserText || 'BEHOLD.',
+      enemies: this.levelDef.enemySkins || {},
+      pickups: this.levelDef.pickupSkins || {},
+    };
     const L = this.level;
     this.theme = THEMES[L.theme];
     this.keys = themeKeys(L.theme);
@@ -87,6 +101,7 @@ export default class GameScene extends Phaser.Scene {
     this.boss = null;
     this.bossDone = false;
 
+    this.sfx('music', { theme: L.theme, boss: !!L.boss });
     if (!this.scene.isActive('UI')) this.scene.launch('UI');
     else this.scene.get('UI').reset();
   }
@@ -190,7 +205,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.pickups = this.physics.add.group({ allowGravity: false, immovable: true });
     for (const p of L.pickups) {
-      const s = this.pickups.create(p.x, p.y, p.type).setDepth(1);
+      const s = this.pickups.create(p.x, p.y, this.skin.pickups[p.type]?.tex || p.type).setDepth(1);
       s.kind = p.type;
       if (p.type === 'halo') s.body.setCircle(13, 2, 2);
       else if (KEY_POWERS.includes(p.type)) {
@@ -215,14 +230,15 @@ export default class GameScene extends Phaser.Scene {
   spawnEnemy(type, x, y, { phase, sleeping = false } = {}) {
     const def = ENEMIES[type];
     if (type === 'fish') y = GROUND_Y + 60; // fish always start under the surface
-    const s = this.enemies.create(x, y, `${type}0`).setDepth(type === 'fish' ? 0.5 : 2);
+    const look = this.skin?.enemies[type] || type;
+    const s = this.enemies.create(x, y, `${look}0`).setDepth(type === 'fish' ? 0.5 : 2);
     s.kind = type;
     s.hp = def.hp;
     s.awake = !sleeping;
     s.baseY = y;
     s.phase = phase ?? Math.random() * Math.PI * 2;
     s.nextAct = 0;
-    s.play(type);
+    s.play(look);
     s.body.setSize(def.w, def.h).setOffset(def.ox, def.oy);
     s.body.allowGravity = !!def.gravity;
     if (type === 'gargoyle') {
@@ -242,8 +258,8 @@ export default class GameScene extends Phaser.Scene {
     this.ghostTail = this.add.sprite(0, 0, 'ghostTail0').setDepth(3.6).setVisible(false).setOrigin(0.85, 0.3);
     this.ghostTail.play('ghostTail');
     this.wingBack = this.add.sprite(0, 0, 'wing0').setDepth(3).setVisible(false).setTint(0xdfe8f5);
-    this.player = this.physics.add.sprite(L.startX, GROUND_Y - 56, 'hero0').setDepth(4);
-    this.player.play('gallop');
+    this.player = this.physics.add.sprite(L.startX, GROUND_Y - 56, this.skin.idle).setDepth(4);
+    this.player.play(this.skin.run);
     this.player.body.setSize(60, 76).setOffset(36, 34);
     this.player.body.setMaxVelocityY(1500);
     this.wingFront = this.add.sprite(0, 0, 'wing0').setDepth(5).setVisible(false);
@@ -251,8 +267,8 @@ export default class GameScene extends Phaser.Scene {
     this.wingFront.play('flap');
 
     this.guns = [
-      { img: this.add.image(0, 0, 'minigun').setOrigin(0.15, 0.33).setDepth(6), dx: 8, dy: -16, angle: GUNS.upperAngleDeg, kick: 0 },
-      { img: this.add.image(0, 0, 'minigun').setOrigin(0.15, 0.33).setDepth(6), dx: 2, dy: 2, angle: GUNS.lowerAngleDeg, kick: 0 },
+      { img: this.add.image(0, 0, this.skin.gun).setOrigin(0.15, 0.33).setDepth(6), dx: 8, dy: -16, angle: GUNS.upperAngleDeg, kick: 0 },
+      { img: this.add.image(0, 0, this.skin.gun).setOrigin(0.15, 0.33).setDepth(6), dx: 2, dy: 2, angle: GUNS.lowerAngleDeg, kick: 0 },
     ];
     this.guns.forEach((g) => {
       g.flash = this.add.image(0, 0, 'flash').setOrigin(0, 0.5).setDepth(7).setVisible(false);
@@ -402,6 +418,11 @@ export default class GameScene extends Phaser.Scene {
     ['clouds', 'far', 'props', 'near', 'abyss'].forEach((key) => this.bg[key].setSize(width, this.bg[key].height));
   }
 
+  // Sound: GameScene only announces what happened. src/audio.js decides what it sounds like.
+  sfx(name, data) {
+    this.game.events.emit('sfx', name, data);
+  }
+
   // ---------------------------------------------------------------- terrain queries
 
   isOverGround(x) {
@@ -436,6 +457,7 @@ export default class GameScene extends Phaser.Scene {
     const canGroundJump = onGround && now >= this.jumpLockUntil;
     if (canGroundJump) {
       this.doJump(PLAYER.jumpVelocity);
+      this.sfx('jump');
       return 'ground';
     }
     if (this.airJumps < 1) {
@@ -443,6 +465,7 @@ export default class GameScene extends Phaser.Scene {
       this.doJump(PLAYER.doubleJumpVelocity);
       this.rainbow.explode(24);
       this.flapUntil = now + 450;
+      this.sfx('doubleJump');
       return 'air';
     }
     this.jumpBufferedAt = now;
@@ -476,11 +499,12 @@ export default class GameScene extends Phaser.Scene {
       return false;
     }
     s.laser = 0;
+    this.sfx('laser');
     this.laserUntil = this.time.now + LASER.durationMs;
     this.laserTick = 0;
     this.cameras.main.shake(LASER.durationMs, 0.006);
     this.cameras.main.flash(160, 255, 90, 90);
-    this.floatText(this.player.x + 60, this.player.y - 120, 'BEHOLD.', '#ff3b30', 40);
+    this.floatText(this.player.x + 60, this.player.y - 120, this.skin.laserText, '#ff3b30', 40);
     return true;
   }
 
@@ -535,7 +559,7 @@ export default class GameScene extends Phaser.Scene {
       body.setAllowGravity(false);
       body.setVelocity(0, 200 / (PLAYER.respawnDescentMs / 1000));
       p.anims.stop();
-      p.setTexture('heroJump');
+      p.setTexture(this.skin.jump);
       this.wingBack.setVisible(true).setPosition(p.x - 22, p.y - 18);
       this.wingFront.setVisible(true).setPosition(p.x - 6, p.y - 10);
       p.setAlpha(Math.floor(time / 70) % 2 ? 0.5 : 1);
@@ -579,10 +603,10 @@ export default class GameScene extends Phaser.Scene {
 
     // look
     if (grounded && !this.ghosting) {
-      if (p.anims.currentAnim?.key !== 'gallop' || !p.anims.isPlaying) p.play('gallop');
+      if (p.anims.currentAnim?.key !== this.skin.run || !p.anims.isPlaying) p.play(this.skin.run);
     } else {
       p.anims.stop();
-      p.setTexture('heroJump');
+      p.setTexture(this.skin.jump);
     }
 
     const flapping = !this.ghosting && (this.hovering || time < (this.flapUntil || 0));
@@ -643,6 +667,7 @@ export default class GameScene extends Phaser.Scene {
 
   startGhost() {
     this.ghosting = true;
+    this.sfx('ghost');
     this.player.setTint(0xa9d4ff);
     this.ghostGlow.setVisible(true);
     this.ghostTail.setVisible(true);
@@ -689,6 +714,7 @@ export default class GameScene extends Phaser.Scene {
     const my = g.img.y + Math.sin(a) * 70;
     const spread = time < this.state.loavesUntil ? GUNS.spreadAnglesDeg : [0];
     for (const off of spread) this.spawnBullet(mx, my, a + off * DEG);
+    this.sfx('shoot');
 
     g.kick = 4;
     g.flash.setPosition(mx - 4, my).setRotation(a).setVisible(true).setScale(0.8 + Math.random() * 0.5);
@@ -831,11 +857,11 @@ export default class GameScene extends Phaser.Scene {
         case 'frog':
           if (e.body.blocked.down) {
             e.body.setVelocityX(0);
-            e.setTexture('frog0');
+            e.setTexture(`${this.skin.enemies.frog || 'frog'}0`);
             if (time >= e.nextAct) {
               e.nextAct = time + def.hopEveryMs;
               e.body.setVelocity(-200, -620);
-              e.setTexture('frog1');
+              e.setTexture(`${this.skin.enemies.frog || 'frog'}1`);
             }
           }
           break;
@@ -991,6 +1017,7 @@ export default class GameScene extends Phaser.Scene {
 
   breakWall(wl) {
     if (!wl.active) return;
+    this.sfx('wallBreak');
     this.puff.setParticleTint(this.theme.stone[0]);
     for (let i = 0; i < wl.tiles; i++) this.puff.explode(10, wl.x + 32, wl.y + i * TILE + 32);
     this.cameras.main.shake(120, 0.006);
@@ -1078,6 +1105,7 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: b, offX: 0, duration: 1300, ease: 'Cubic.out' });
     b.nextAttackAt = this.time.now + 1800;
     this.events.emit('boss-intro', ph.name);
+    this.sfx('bossIntro', ph.name);
   }
 
   updateBoss(time, delta) {
@@ -1158,6 +1186,7 @@ export default class GameScene extends Phaser.Scene {
 
   endBossPhase() {
     const b = this.boss;
+    this.sfx('bossDown');
     const sp = b.sprite;
     this.state.kills++;
     this.puff.setParticleTint(0xffe14d);
@@ -1247,6 +1276,7 @@ export default class GameScene extends Phaser.Scene {
     if (!b.active || !e.active) return;
     this.killBullet(b, 0xffe14d);
     e.hp -= GUNS.damage;
+    this.sfx('enemyHit');
     e.setTintFill(0xffffff);
     this.time.delayedCall(50, () => e.active && e.clearTint());
     if (e.hp <= 0) this.killEnemy(e);
@@ -1256,6 +1286,7 @@ export default class GameScene extends Phaser.Scene {
     if (!e.active) return;
     const s = this.state;
     s.kills++;
+    this.sfx('kill', e.kind);
     if (!byLaser) s.laser = Math.min(LASER.meterMax, s.laser + LASER.perKill);
     this.puff.setParticleTint(ENEMIES[e.kind].tint);
     this.puff.explode(16, e.x, e.y);
@@ -1266,6 +1297,14 @@ export default class GameScene extends Phaser.Scene {
     if (!item.active) return;
     const s = this.state;
     const now = this.time.now;
+    this.sfx(item.kind === 'halo' ? 'halo' : 'power', item.kind);
+    const skinText = this.skin.pickups[item.kind]?.text;
+    if (skinText) {
+      // a skinned pickup keeps the effect but says its own thing
+      const realFloat = this.floatText;
+      this.floatText = (x, y, _str, color, size) => realFloat.call(this, x, y, skinText, color, size);
+      this.time.delayedCall(0, () => (this.floatText = realFloat));
+    }
     switch (item.kind) {
       case 'halo':
         s.halos++;
@@ -1346,6 +1385,7 @@ export default class GameScene extends Phaser.Scene {
       return true;
     }
     s.hearts--;
+    this.sfx('hurt');
     this.invulnUntil = now + PLAYER.hurtInvulnMs;
     this.cameras.main.shake(180, 0.01);
     this.player.setTint(0xff6b6b);
@@ -1358,6 +1398,7 @@ export default class GameScene extends Phaser.Scene {
     const s = this.state;
     if (s.status !== 'playing') return;
     s.status = 'dead';
+    this.sfx('die', cause);
     s.deathCause = cause;
     s.deaths++;
     s.hearts = 0;
@@ -1423,6 +1464,7 @@ export default class GameScene extends Phaser.Scene {
     const s = this.state;
     if (s.status !== 'playing') return;
     s.status = 'clear';
+    this.sfx('clear');
     this.releaseAll();
     this.laserGfx.clear();
     this.guns.forEach((g) => g.flash.setVisible(false));

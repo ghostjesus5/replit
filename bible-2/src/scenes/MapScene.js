@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { FONT } from '../config.js';
-import { WORLDS, ALL_LEVELS } from '../levels/campaign.js';
+import { CAMPAIGNS, campaignLevels } from '../levels/campaign.js';
 import { themeKeys } from '../themes.js';
 import { getProgress, setUnlockAll, loadBest } from '../save.js';
 
@@ -10,6 +10,12 @@ import { getProgress, setUnlockAll, loadBest } from '../save.js';
 export default class MapScene extends Phaser.Scene {
   constructor() {
     super('Map');
+  }
+
+  init(data) {
+    // which campaign's map to show; remembered for the session
+    if (data?.campaign) MapScene.campaign = data.campaign;
+    this.campaign = MapScene.campaign || 'bible';
   }
 
   create() {
@@ -23,8 +29,9 @@ export default class MapScene extends Phaser.Scene {
 
   isUnlocked(levelId, progress) {
     if (progress.unlockAll) return true;
-    const i = ALL_LEVELS.findIndex((l) => l.id === levelId);
-    return i === 0 || progress.cleared.includes(ALL_LEVELS[i - 1].id);
+    const list = campaignLevels(this.campaign);
+    const i = list.findIndex((l) => l.id === levelId);
+    return i === 0 || progress.cleared.includes(list[i - 1].id);
   }
 
   build() {
@@ -37,7 +44,7 @@ export default class MapScene extends Phaser.Scene {
     add(this.add.rectangle(0, 0, width, height, 0x1b1430).setOrigin(0, 0));
     add(
       this.add
-        .text(width / 2, 34, 'THE NEWEST TESTAMENT', { fontFamily: FONT, fontSize: '34px', fontStyle: 'bold', color: '#ffd447', stroke: '#000000', strokeThickness: 4 })
+        .text(width / 2, 34, CAMPAIGNS[this.campaign].title, { fontFamily: FONT, fontSize: '34px', fontStyle: 'bold', color: '#ffd447', stroke: '#000000', strokeThickness: 4 })
         .setOrigin(0.5),
     );
 
@@ -47,7 +54,9 @@ export default class MapScene extends Phaser.Scene {
     const top = 70;
     const bottomBar = 64;
     const cardW = Math.min(400, (width - 40 - gapX * (cols - 1)) / cols);
-    const cardH = (height - top - bottomBar - gapY) / 2;
+    const WORLDS = CAMPAIGNS[this.campaign].worlds;
+    const rows = Math.max(1, Math.ceil(WORLDS.length / cols));
+    const cardH = Math.min(260, (height - top - bottomBar - gapY * (rows - 1)) / Math.max(rows, 2));
     const gridW = cardW * cols + gapX * (cols - 1);
     const left = (width - gridW) / 2;
 
@@ -112,6 +121,21 @@ export default class MapScene extends Phaser.Scene {
           .setOrigin(0, 1),
       );
     });
+
+    // campaign switcher, top corners
+    const other = this.campaign === 'bible' ? 'mormon' : 'bible';
+    if (CAMPAIGNS[other].worlds.length) {
+      const sw = add(
+        this.add
+          .text(width - 16, 34, `${CAMPAIGNS[other].title} >`, { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#1b1430', backgroundColor: '#ffd447', padding: { x: 10, y: 6 } })
+          .setOrigin(1, 0.5),
+      );
+      sw.setInteractive({ useHandCursor: true }).on('pointerup', () => {
+        MapScene.campaign = other;
+        this.campaign = other;
+        this.build();
+      });
+    }
 
     // bottom bar
     const by = height - bottomBar / 2;

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { FONT, GROUND_Y } from '../config.js';
 import { getProgress } from '../save.js';
-import { ALL_LEVELS } from '../levels/campaign.js';
+import { CAMPAIGNS, campaignLevels } from '../levels/campaign.js';
 
 export default class TitleScene extends Phaser.Scene {
   constructor() {
@@ -78,7 +78,7 @@ export default class TitleScene extends Phaser.Scene {
     if (done) {
       add(
         this.add
-          .text(width - 20, 20, `${done} / ${ALL_LEVELS.length} LEVELS CLEARED`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
+          .text(width - 20, 20, `${done} / ${Object.keys(CAMPAIGNS).reduce((n, c) => n + campaignLevels(c).length, 0)} LEVELS CLEARED`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
           .setOrigin(1, 0),
       );
     }

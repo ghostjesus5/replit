@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { GROUND_Y, PLAYER } from './config.js';
+import { BOM_BOSSES, BOM_ATTACKS } from './bosses-mormon.js';
 
 const LOW = GROUND_Y - 40; // hits you unless you jump
 const HIGH = GROUND_Y - 170; // hits you only if you jump
@@ -228,6 +229,9 @@ export const BOSSES = {
     ],
   },
 };
+
+Object.assign(BOSSES, BOM_BOSSES);
+Object.assign(ATTACKS, BOM_ATTACKS);
 
 export function runAttack(scene, boss, [name, opts]) {
   return ATTACKS[name](scene, boss, opts || {});

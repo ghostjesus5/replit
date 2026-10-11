@@ -2,6 +2,7 @@
 // keys like `ground_egypt`, so the game scene just asks for `${part}_${theme}`.
 
 import { make, poly, drawHills } from './textures.js';
+import { MORMON_THEMES } from './themes-mormon.js';
 
 export const THEMES = {
   eden: {
@@ -89,6 +90,8 @@ export const THEMES = {
     water: [0xb3261e, 0xff8a3a], // a lake of fire, for the record
   },
 };
+
+Object.assign(THEMES, MORMON_THEMES);
 
 function drawTop(g, t) {
   const [dirt, dirtDark, speck] = t.dirt;
@@ -370,7 +373,7 @@ export function createThemeTextures(scene) {
     make(scene, k.clouds, 512, 160, (g) => drawClouds(g, t.clouds));
     make(scene, k.far, 512, 220, (g) => drawHills(g, 512, 220, t.far, 26, 110, 1));
     make(scene, k.near, 512, 200, (g) => drawHills(g, 512, 200, t.near, 22, 90, 2));
-    make(scene, k.props, 512, 260, (g) => PROPS[t.prop](g));
+    make(scene, k.props, 512, 260, (g) => (typeof t.prop === 'function' ? t.prop(g) : PROPS[t.prop](g)));
     make(scene, k.ground, 64, 64, (g) => drawTop(g, t));
     make(scene, k.dirt, 64, 64, (g) => drawDirt(g, t));
     make(scene, k.platform, 64, 24, (g) => drawStone(g, t));
