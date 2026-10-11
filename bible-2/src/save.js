@@ -21,3 +21,43 @@ export function saveBest(levelId, run) {
     return run;
   }
 }
+
+// Campaign progress: which levels are cleared, plus a playtest switch that unlocks everything.
+const PROGRESS = 'bible2.progress';
+
+function readProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(PROGRESS) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeProgress(p) {
+  try {
+    localStorage.setItem(PROGRESS, JSON.stringify(p));
+  } catch {
+    // storage blocked, progress just won't stick
+  }
+}
+
+let memory = null; // fallback when storage is blocked
+
+export function getProgress() {
+  const p = memory || readProgress();
+  return { cleared: p.cleared || [], unlockAll: !!p.unlockAll };
+}
+
+export function markCleared(levelId) {
+  const p = getProgress();
+  if (!p.cleared.includes(levelId)) p.cleared.push(levelId);
+  memory = p;
+  writeProgress(p);
+}
+
+export function setUnlockAll(on) {
+  const p = getProgress();
+  p.unlockAll = on;
+  memory = p;
+  writeProgress(p);
+}

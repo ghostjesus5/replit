@@ -4,9 +4,11 @@ import BootScene from './scenes/BootScene.js';
 import TitleScene from './scenes/TitleScene.js';
 import GameScene from './scenes/GameScene.js';
 import UIScene from './scenes/UIScene.js';
+import MapScene from './scenes/MapScene.js';
 
 const game = new Phaser.Game({
-  type: Phaser.AUTO,
+  // ?headless runs the game with no drawing at all, for fast automated level tests
+  type: new URLSearchParams(window.location.search).has('headless') ? Phaser.HEADLESS : Phaser.AUTO,
   parent: 'game',
   backgroundColor: '#1b1430',
   scale: {
@@ -22,7 +24,7 @@ const game = new Phaser.Game({
     arcade: { gravity: { y: PLAYER.gravity }, debug: DEBUG.physics },
   },
   input: { activePointers: 3 },
-  scene: [BootScene, TitleScene, GameScene, UIScene],
+  scene: [BootScene, TitleScene, MapScene, GameScene, UIScene],
 });
 
 // handy for poking at things from the browser console during playtests

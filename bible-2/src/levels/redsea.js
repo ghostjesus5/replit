@@ -1,0 +1,75 @@
+import { flat, gap, sea, fish, crab, imp, thorns, platform, crumble, mover, loaves, wine, ghost, walk, staff, sign, finish, halos, arena } from './builder.js';
+
+const REDSEA_1 = {
+  id: 'redsea-1',
+  name: 'RED SEA 3-1',
+  subtitle: 'Walk on Water',
+  beats: [
+    flat(14, sign(5, 'THE SEA IS DEADLY.\nUNTIL IT ISN\'T.'), halos(9, 4)),
+    sea(3),
+    flat(10, crab(5), crab(8)),
+    sea(5, fish(2)),
+    flat(8, sign(1, 'WALK ON WATER.\nRUNS FASTER, TOO.')),
+    flat(4, walk(2)),
+    sea(24, fish(5), fish(11), fish(17), halos(2, 20, 8)),
+    flat(10, crab(4), imp(7, 6), thorns(8)),
+    sea(6, platform(2, 7, 2), fish(4)),
+    flat(8, crab(5)),
+    flat(6, sign(1, 'PART THE SEA.')),
+    flat(4, staff(2)),
+    sea(18, halos(1, 16, 8)),
+    flat(10, loaves(2), crab(5), crab(6), crab(7)),
+    sea(4),
+    flat(5, thorns(2)),
+    sea(5, fish(2)),
+    flat(6, walk(3)),
+    sea(30, fish(4), fish(9), fish(14), fish(19), fish(24), imp(12, 5), imp(22, 6), halos(2, 10, 8), halos(18, 8, 6, 1)),
+    flat(12, crab(4), thorns(7), crab(9)),
+    sea(7, halos(0, 7, 5, 2), fish(3)),
+    flat(22, finish(10), halos(2, 6)),
+  ],
+};
+
+const REDSEA_2 = {
+  id: 'redsea-2',
+  name: 'RED SEA 3-2',
+  subtitle: 'Pillar of Fire',
+  beats: [
+    flat(12, halos(6, 4)),
+    sea(4, fish(2)),
+    flat(6, crab(3)),
+    sea(8, mover(1, 7, 2, { dx: 1.5, period: 2200 }), mover(5, 6, 2, { dy: 1 }), fish(3), fish(6)),
+    flat(8, crab(3), crab(5), imp(6, 6)),
+    flat(4, walk(2)),
+    sea(20, fish(3), fish(7), fish(11), fish(15), imp(9, 5), halos(4, 12, 8)),
+    flat(6, wine(2)),
+    sea(6, crumble(2, 7, 2)),
+    flat(10, crab(3), thorns(5), crab(7), imp(8, 5)),
+    flat(4, staff(2)),
+    sea(16, halos(0, 16, 8)),
+    flat(6),
+    sea(5, fish(2)),
+    flat(4),
+    sea(6, platform(1, 7, 3), fish(4)),
+    flat(8, ghost(4)),
+    sea(32, fish(3), fish(8), fish(13), fish(18), fish(23), fish(28), imp(6, 4), imp(15, 6), imp(24, 3), halos(2, 8, 5), halos(14, 8, 4, 1)),
+    flat(12, loaves(2), crab(5), crab(7), crab(9)),
+    sea(6, fish(3), halos(0, 6, 5, 2)),
+    flat(8, thorns(3)),
+    sea(4),
+    flat(6, crab(3)),
+    flat(4, walk(1)),
+    sea(14, fish(3), fish(8), fish(12), imp(6, 6), imp(10, 4)),
+    flat(22, finish(10), halos(2, 6)),
+  ],
+};
+
+const REDSEA_BOSS = {
+  id: 'redsea-boss',
+  name: 'RED SEA 3-3',
+  subtitle: 'Leviathan',
+  boss: 'leviathan',
+  beats: arena(560, { water: true, gapEvery: 30, intro: 'SOMETHING BIG\nIS UNDER THE WATER.' }),
+};
+
+export default [REDSEA_1, REDSEA_2, REDSEA_BOSS];

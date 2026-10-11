@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { FONT, GROUND_Y } from '../config.js';
-import { loadBest } from '../save.js';
-import EDEN_1 from '../levels/eden-1.js';
+import { getProgress } from '../save.js';
+import { ALL_LEVELS } from '../levels/campaign.js';
 
 export default class TitleScene extends Phaser.Scene {
   constructor() {
@@ -10,6 +10,7 @@ export default class TitleScene extends Phaser.Scene {
 
   create() {
     this.items = [];
+    this.started = false;
     this.build();
     this.scale.on('resize', this.build, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.build, this));
@@ -62,7 +63,7 @@ export default class TitleScene extends Phaser.Scene {
 
     add(
       this.add
-        .text(cx, height * 0.48, `${EDEN_1.name}  ·  ${EDEN_1.subtitle.toUpperCase()}`, { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
+        .text(cx, height * 0.48, 'SIX WORLDS. ONE UNICORN. NO MERCY.', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
         .setOrigin(0.5),
     );
 
@@ -73,12 +74,11 @@ export default class TitleScene extends Phaser.Scene {
         .setOrigin(0.5, 1),
     );
 
-    const best = loadBest(EDEN_1.id);
-    if (best) {
-      const s = best.timeMs / 1000;
+    const done = getProgress().cleared.length;
+    if (done) {
       add(
         this.add
-          .text(width - 20, 20, `BEST ${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
+          .text(width - 20, 20, `${done} / ${ALL_LEVELS.length} LEVELS CLEARED`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 })
           .setOrigin(1, 0),
       );
     }
@@ -105,6 +105,6 @@ export default class TitleScene extends Phaser.Scene {
       }
     }
     this.cameras.main.fadeOut(250, 27, 20, 48);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game'));
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Map'));
   }
 }

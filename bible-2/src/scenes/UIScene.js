@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { LASER, PLAYER, FONT } from '../config.js';
 import { showRewardedAd, FAKE_AD_MS } from '../ads.js';
+import { nextLevel } from '../levels/campaign.js';
 
 // HUD, menus, and all touch input. Touch lives here (the top scene) so taps on
 // buttons never leak through as jumps.
@@ -53,6 +54,10 @@ export default class UIScene extends Phaser.Scene {
     ev.off('died', this.onDied, this);
     ev.off('cleared', this.onCleared, this);
     ev.off('laser-not-ready', this.onLaserNotReady, this);
+    ev.off('boss-intro', this.onBossIntro, this);
+    ev.off('boss-defeated', this.onBossDefeated, this);
+    ev.on('boss-intro', this.onBossIntro, this);
+    ev.on('boss-defeated', this.onBossDefeated, this);
     ev.on('died', this.onDied, this);
     ev.on('cleared', this.onCleared, this);
     ev.on('laser-not-ready', this.onLaserNotReady, this);
@@ -114,7 +119,10 @@ export default class UIScene extends Phaser.Scene {
     circle.setInteractive({ hitArea: new Phaser.Geom.Circle(28, 28, 44), hitAreaCallback: Phaser.Geom.Circle.Contains, useHandCursor: true });
     circle.on('pointerup', () => this.togglePause());
 
-    this.hud.add([...this.hearts, this.haloIcon, this.haloText, this.meter, this.meterLabel, this.powerText, this.timeText, this.pauseBtn]);
+    this.bossGfx = this.add.graphics();
+    this.bossName = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 }).setOrigin(0.5, 1);
+
+    this.hud.add([...this.hearts, this.haloIcon, this.haloText, this.meter, this.meterLabel, this.powerText, this.timeText, this.pauseBtn, this.bossGfx, this.bossName]);
     this.layout();
   }
 
@@ -129,6 +137,7 @@ export default class UIScene extends Phaser.Scene {
     this.powerText.setPosition(width / 2, this.meterY + 26);
     this.pauseBtn.setPosition(width - 46, 44);
     this.timeText.setPosition(width - 92, 44);
+    this.bossName.setPosition(width / 2, this.scale.height - 34);
     if (this.overlayKind) this.rebuildOverlay();
   }
 
@@ -164,9 +173,49 @@ export default class UIScene extends Phaser.Scene {
     }
 
     const parts = [];
-    if (gt < s.loavesUntil) parts.push(`SPREAD SHOT ${Math.ceil((s.loavesUntil - gt) / 1000)}s`);
-    if (gt < s.wineUntil) parts.push(`SHIELD ${Math.ceil((s.wineUntil - gt) / 1000)}s`);
+    const secs = (until) => Math.ceil((until - gt) / 1000);
+    if (game.ghosting) parts.push(gt < s.ghostUntil ? `HOLY GHOST ${secs(s.ghostUntil)}s` : 'HOLY GHOST: FIND GROUND');
+    if (gt < s.walkUntil) parts.push(`WALK ON WATER ${secs(s.walkUntil)}s`);
+    if (gt < s.loavesUntil) parts.push(`SPREAD SHOT ${secs(s.loavesUntil)}s`);
+    if (gt < s.wineUntil) parts.push(`SHIELD ${secs(s.wineUntil)}s`);
     this.powerText.setText(parts.join('   '));
+
+    // boss health along the bottom
+    const bg = this.bossGfx;
+    bg.clear();
+    if (s.bossBar) {
+      const bw = Math.min(560, this.scale.width - 80);
+      const bx = this.scale.width / 2 - bw / 2;
+      const by = this.scale.height - 28;
+      bg.fillStyle(0x1b1430, 0.7);
+      bg.fillRoundedRect(bx - 3, by - 3, bw + 6, 20, 6);
+      bg.fillStyle(0xd61f1f, 1);
+      bg.fillRoundedRect(bx, by, Math.max(0, (bw * s.bossBar.hp) / s.bossBar.max), 14, 5);
+      bg.lineStyle(2, 0xfff6d6, 0.8);
+      bg.strokeRoundedRect(bx - 3, by - 3, bw + 6, 20, 6);
+      this.bossName.setText(s.bossBar.name).setVisible(true);
+    } else {
+      this.bossName.setVisible(false);
+    }
+  }
+
+  banner(text, color = '#fff6d6', size = 52) {
+    const { width, height } = this.scale;
+    const t = this.add
+      .text(width / 2, height * 0.3, text, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color, align: 'center', stroke: '#1b1430', strokeThickness: 9 })
+      .setOrigin(0.5)
+      .setDepth(5)
+      .setScale(0.7);
+    this.tweens.add({ targets: t, scale: 1, duration: 300, ease: 'Back.out' });
+    this.tweens.add({ targets: t, alpha: 0, delay: 1500, duration: 600, onComplete: () => t.destroy() });
+  }
+
+  onBossIntro(name) {
+    this.banner(name, '#ff6b5a');
+  }
+
+  onBossDefeated() {
+    this.banner('THE GATE IS OPEN', '#ffd447', 44);
   }
 
   onLaserNotReady() {
@@ -266,13 +315,13 @@ export default class UIScene extends Phaser.Scene {
     this.body(cx, h * 0.24 + 60, 'Selah.');
     this.button(cx, h * 0.48, 'RESUME', null, () => this.togglePause());
     this.button(cx, h * 0.48 + 88, 'START OVER', null, () => this.restartLevel(), false);
-    this.button(cx, h * 0.48 + 176, 'TITLE SCREEN', null, () => this.toTitle(), false);
+    this.button(cx, h * 0.48 + 176, 'WORLD MAP', null, () => this.toMap(), false);
   }
 
   buildDead(cx, h) {
     const s = this.gameScene.state;
-    const pit = s.deathCause === 'pit';
-    this.title(cx, h * 0.22, pit ? 'CAST INTO THE PIT.' : 'SMITTEN.');
+    const titles = { pit: 'CAST INTO THE PIT.', water: 'SWEPT AWAY.', hit: 'SMITTEN.' };
+    this.title(cx, h * 0.22, titles[s.deathCause] || 'SMITTEN.');
     this.body(cx, h * 0.22 + 62, 'Even the Son of God has off days.');
     if (s.resurrectsUsed < 1) {
       this.button(cx, h * 0.52, 'RESURRECT', 'watch a short ad', () => this.startResurrect());
@@ -307,8 +356,9 @@ export default class UIScene extends Phaser.Scene {
   buildClear(cx, h) {
     const s = this.gameScene.state;
     const L = this.gameScene.level;
-    this.title(cx, h * 0.17, 'IT IS FINISHED.');
-    this.body(cx, h * 0.17 + 58, `${L.name} CLEAR`, 24, '#ffd447');
+    const next = nextLevel(this.gameScene.levelDef.id);
+    this.title(cx, h * 0.17, next ? 'IT IS FINISHED.' : 'IT IS FINISHED.\nFOR REAL THIS TIME.', next ? 64 : 48);
+    this.body(cx, h * 0.17 + (next ? 58 : 80), next ? `${L.name} CLEAR` : 'YOU BEAT BIBLE 2. THE SEQUEL IS IN DEVELOPMENT.', 24, '#ffd447');
     const best = s.best && s.best.timeMs < Math.round(s.timeMs) ? `   (best ${fmtTime(s.best.timeMs)})` : s.best ? '   (new best)' : '';
     const lines = [
       `Time   ${fmtTime(s.timeMs)}${best}`,
@@ -316,9 +366,15 @@ export default class UIScene extends Phaser.Scene {
       `Smitten   ${s.kills}`,
       `Deaths   ${s.deaths}`,
     ];
-    this.body(cx, h * 0.47, lines.join('\n'), 28, '#fff6d6');
-    this.button(cx - 180, h * 0.78, 'RIDE AGAIN', null, () => this.restartLevel());
-    this.button(cx + 180, h * 0.78, 'TITLE SCREEN', null, () => this.toTitle(), false);
+    this.body(cx, h * 0.43, lines.join('\n'), 26, '#fff6d6');
+    if (next) {
+      this.button(cx, h * 0.72, 'NEXT LEVEL', next.name, () => this.goToLevel(next.id));
+      this.button(cx - 180, h * 0.72 + 96, 'RIDE AGAIN', null, () => this.restartLevel(), false);
+      this.button(cx + 180, h * 0.72 + 96, 'WORLD MAP', null, () => this.toMap(), false);
+    } else {
+      this.button(cx - 180, h * 0.8, 'RIDE AGAIN', null, () => this.restartLevel());
+      this.button(cx + 180, h * 0.8, 'WORLD MAP', null, () => this.toMap(), false);
+    }
   }
 
   // ---------------------------------------------------------------- flow
@@ -376,14 +432,18 @@ export default class UIScene extends Phaser.Scene {
   }
 
   restartLevel() {
-    this.hideOverlay();
-    if (this.scene.isPaused('Game')) this.scene.resume('Game');
-    this.gameScene.scene.restart();
+    this.goToLevel(this.gameScene.levelDef.id);
   }
 
-  toTitle() {
+  goToLevel(levelId) {
+    this.hideOverlay();
+    if (this.scene.isPaused('Game')) this.scene.resume('Game');
+    this.gameScene.scene.restart({ levelId });
+  }
+
+  toMap() {
     this.hideOverlay();
     this.scene.stop('Game');
-    this.scene.start('Title');
+    this.scene.start('Map');
   }
 }

@@ -1,16 +1,24 @@
+import Phaser from 'phaser';
+
 // Placeholder art, drawn in code so the greybox needs zero asset files.
 // Every key here gets swapped for commissioned art later, same names, same sizes.
 
 const RAINBOW = [0xff4d4d, 0xff9f2e, 0xffe14d, 0x5fd35f, 0x4da6ff, 0xa66bff];
 
-function make(scene, key, w, h, draw) {
+export function make(scene, key, w, h, draw) {
+  if (scene.textures.exists(key)) return;
+  // headless test runs have no renderer to draw with, so they get blank textures of the right size
+  if (scene.sys.game.config.renderType === Phaser.HEADLESS) {
+    scene.textures.createCanvas(key, w, h);
+    return;
+  }
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
   draw(g);
   g.generateTexture(key, w, h);
   g.destroy();
 }
 
-function poly(g, pts) {
+export function poly(g, pts) {
   g.fillPoints(pts.map(([x, y]) => ({ x, y })), true);
 }
 
@@ -303,7 +311,7 @@ function drawHalo(g) {
   g.strokeEllipse(15, 15, 16, 16);
 }
 
-function drawBubble(g) {
+export function drawBubble(g) {
   g.fillStyle(0xffffff, 0.18);
   g.fillCircle(26, 26, 25);
   g.lineStyle(2, 0xffffff, 0.8);
@@ -364,7 +372,7 @@ function drawHeart(g, full) {
   }
 }
 
-function drawHills(g, w, h, color, amp, base, waves) {
+export function drawHills(g, w, h, color, amp, base, waves) {
   g.fillStyle(color);
   const bottom = h - 3;
   const pts = [[0, bottom]];
@@ -466,7 +474,7 @@ export function createTextures(scene) {
   grad.addColorStop(1, '#ffe7b8');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 4, 256);
-  sky.refresh();
+  if (scene.sys.game.renderer) sky.refresh();
 
   const anims = scene.anims;
   if (!anims.exists('gallop')) {
