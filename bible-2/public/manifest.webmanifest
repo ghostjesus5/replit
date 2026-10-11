@@ -1,0 +1,9 @@
+{
+  "name": "Bible 2: The Newest Testament",
+  "short_name": "Bible 2",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1b1430",
+  "theme_color": "#1b1430",
+  "start_url": "./"
+}

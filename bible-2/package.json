@@ -1,0 +1,19 @@
+{
+  "name": "bible-2",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.7",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}
