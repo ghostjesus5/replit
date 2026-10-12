@@ -3,6 +3,7 @@ import { FONT } from '../config.js';
 import { CAMPAIGNS, campaignLevels } from '../levels/campaign.js';
 import { themeKeys } from '../themes.js';
 import { getProgress, setUnlockAll, loadBest } from '../save.js';
+import { introFor, hasSeenIntro, markIntroSeen } from './StoryScene.js';
 
 // World map: six worlds, each a card with its levels. A level unlocks when the one
 // before it is cleared. Playtesters can flip "unlock all" at the bottom.
@@ -163,6 +164,13 @@ export default class MapScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     this.cameras.main.fadeOut(200, 27, 20, 48);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game', { levelId }));
+    // first level of a world plays that world's scripture page once
+    let target = { scene: 'Game', data: { levelId } };
+    const intro = introFor(levelId);
+    if (intro && !hasSeenIntro(intro.key)) {
+      markIntroSeen(intro.key);
+      target = { scene: 'Story', data: { ...intro, next: target } };
+    }
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(target.scene, target.data));
   }
 }

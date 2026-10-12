@@ -2,12 +2,29 @@ import Phaser from 'phaser';
 import { LASER, PLAYER, FONT } from '../config.js';
 import { showRewardedAd, FAKE_AD_MS } from '../ads.js';
 import { nextLevel } from '../levels/campaign.js';
+import { DEATH_LINES, MORMON_DEATH_LINES } from '../levels/story.js';
+import { outroFor } from './StoryScene.js';
 
 // HUD, menus, and all touch input. Touch lives here (the top scene) so taps on
 // buttons never leak through as jumps.
 
 const SWIPE_MIN_PX = 60;
 const SWIPE_MAX_MS = 400;
+
+const fmtNum = (n) => Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+// five-point star polygon, for the clear screen
+function starPoints(r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pts.push(new Phaser.Geom.Point(Math.cos(a) * rr, Math.sin(a) * rr));
+  }
+  return pts;
+}
+
+let deathLineIdx = 0;
 
 function fmtTime(ms) {
   const s = ms / 1000;
@@ -109,6 +126,13 @@ export default class UIScene extends Phaser.Scene {
     this.meterLabel = this.add.text(0, 0, 'LASER EYES', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 4 }).setOrigin(0.5, 1);
     this.powerText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 4, align: 'center' }).setOrigin(0.5, 0);
     this.timeText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 }).setOrigin(1, 0.5);
+    this.scoreText = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffd447', stroke: '#1b1430', strokeThickness: 5 }).setOrigin(1, 0.5);
+    this.shownScore = 0;
+    this.lastMult = 1;
+    this.comboBadge = this.add.container(0, 0).setVisible(false);
+    this.comboBg = this.add.rectangle(0, 0, 120, 34, 0xb3261e, 0.92).setStrokeStyle(3, 0xffd447).setOrigin(1, 0.5);
+    this.comboText = this.add.text(-10, 0, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6' }).setOrigin(1, 0.5);
+    this.comboBadge.add([this.comboBg, this.comboText]);
 
     this.pauseBtn = this.add.container(0, 0);
     const circle = this.add.circle(0, 0, 28, 0x1b1430, 0.55).setStrokeStyle(3, 0xfff6d6, 0.9);
@@ -122,7 +146,7 @@ export default class UIScene extends Phaser.Scene {
     this.bossGfx = this.add.graphics();
     this.bossName = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fff6d6', stroke: '#1b1430', strokeThickness: 5 }).setOrigin(0.5, 1);
 
-    this.hud.add([...this.hearts, this.haloIcon, this.haloText, this.meter, this.meterLabel, this.powerText, this.timeText, this.pauseBtn, this.bossGfx, this.bossName]);
+    this.hud.add([...this.hearts, this.haloIcon, this.haloText, this.meter, this.meterLabel, this.powerText, this.timeText, this.scoreText, this.comboBadge, this.pauseBtn, this.bossGfx, this.bossName]);
     this.layout();
   }
 
@@ -137,6 +161,8 @@ export default class UIScene extends Phaser.Scene {
     this.powerText.setPosition(width / 2, this.meterY + 26);
     this.pauseBtn.setPosition(width - 46, 44);
     this.timeText.setPosition(width - 92, 44);
+    this.scoreText.setPosition(width - 20, 92);
+    this.comboBadge.setPosition(width - 20, 130);
     this.bossName.setPosition(width / 2, this.scale.height - 34);
     if (this.overlayKind) this.rebuildOverlay();
   }
@@ -150,6 +176,7 @@ export default class UIScene extends Phaser.Scene {
     this.hearts.forEach((h, i) => h.setTexture(i < s.hearts ? 'heart' : 'heartEmpty'));
     this.haloText.setText(`${s.halos}/${s.halosTotal}`);
     this.timeText.setText(fmtTime(s.timeMs));
+    this.updateScore(s);
 
     // laser meter
     const full = s.laser >= LASER.meterMax;
@@ -197,6 +224,33 @@ export default class UIScene extends Phaser.Scene {
     } else {
       this.bossName.setVisible(false);
     }
+  }
+
+  // score rolls up, combo badge pops when the multiplier climbs. all fields optional.
+  updateScore(s) {
+    const score = Number.isFinite(s.score) ? s.score : null;
+    if (score === null) {
+      this.scoreText.setVisible(false);
+    } else {
+      if (score < this.shownScore) this.shownScore = score;
+      this.shownScore += Math.ceil((score - this.shownScore) * 0.25);
+      this.scoreText.setVisible(true).setText(fmtNum(this.shownScore));
+    }
+    const mult = Number.isFinite(s.comboMult) ? s.comboMult : 1;
+    const combo = Number.isFinite(s.combo) ? s.combo : 0;
+    if (mult > 1 || combo >= 5) {
+      this.comboText.setText(mult > 1 ? `x${mult} COMBO ${combo}` : `COMBO ${combo}`);
+      this.comboBg.setSize(this.comboText.width + 22, 34).setOrigin(1, 0.5);
+      this.comboBadge.setVisible(true);
+      if (mult > this.lastMult) {
+        this.tweens.killTweensOf(this.comboBadge);
+        this.comboBadge.setScale(1.6);
+        this.tweens.add({ targets: this.comboBadge, scale: 1, duration: 260, ease: 'Back.out' });
+      }
+    } else {
+      this.comboBadge.setVisible(false);
+    }
+    this.lastMult = mult;
   }
 
   banner(text, color = '#fff6d6', size = 52) {
@@ -311,18 +365,27 @@ export default class UIScene extends Phaser.Scene {
   }
 
   buildPause(cx, h) {
-    this.title(cx, h * 0.24, 'PAUSED');
-    this.body(cx, h * 0.24 + 60, 'Selah.');
-    this.button(cx, h * 0.48, 'RESUME', null, () => this.togglePause());
-    this.button(cx, h * 0.48 + 88, 'START OVER', null, () => this.restartLevel(), false);
-    this.button(cx, h * 0.48 + 176, 'WORLD MAP', null, () => this.toMap(), false);
+    this.title(cx, h * 0.15, 'PAUSED');
+    this.body(cx, h * 0.15 + 56, 'Selah.');
+    const y0 = h * 0.15 + 132;
+    this.button(cx, y0, 'RESUME', null, () => this.togglePause());
+    this.button(cx, y0 + 82, 'START OVER', null, () => this.restartLevel(), false);
+    this.button(cx, y0 + 164, 'WORLD MAP', null, () => this.toMap(), false);
+    const audio = this.game.audio;
+    if (audio?.toggleMute) {
+      const muted = audio.isMuted?.() ?? false;
+      this.button(cx, y0 + 246, muted ? 'SOUND: OFF' : 'SOUND: ON', null, () => {
+        audio.toggleMute();
+        this.rebuildOverlay();
+      }, false);
+    }
   }
 
   buildDead(cx, h) {
     const s = this.gameScene.state;
     const titles = { pit: 'CAST INTO THE PIT.', water: 'SWEPT AWAY.', hit: 'SMITTEN.' };
     this.title(cx, h * 0.22, titles[s.deathCause] || 'SMITTEN.');
-    this.body(cx, h * 0.22 + 62, 'Even the Son of God has off days.');
+    this.body(cx, h * 0.22 + 62, this.deathLine(s.deathCause), 24);
     if (s.resurrectsUsed < 1) {
       this.button(cx, h * 0.52, 'RESURRECT', 'watch a short ad', () => this.startResurrect());
       this.button(cx, h * 0.52 + 104, 'START OVER', null, () => this.restartLevel(), false);
@@ -330,6 +393,17 @@ export default class UIScene extends Phaser.Scene {
       this.body(cx, h * 0.44, 'One resurrection per level. Those are the rules.', 22, '#cfc2a4');
       this.button(cx, h * 0.58, 'START OVER', null, () => this.restartLevel());
     }
+  }
+
+  // pick once per death so a resize doesn't reroll the joke
+  deathLine(cause) {
+    if (this.overlayData?.line) return this.overlayData.line;
+    const mormon = this.gameScene.levelDef?.campaign === 'mormon';
+    const table = (mormon ? MORMON_DEATH_LINES : DEATH_LINES) || DEATH_LINES;
+    const list = table[cause] || table.hit || DEATH_LINES.hit;
+    const line = list[deathLineIdx++ % list.length];
+    this.overlayData = { ...(this.overlayData || {}), line };
+    return line;
   }
 
   buildAd(cx, h) {
@@ -353,28 +427,90 @@ export default class UIScene extends Phaser.Scene {
     this.body(cx, h * 0.45 + 110, '(three days, abridged)', 22, '#8f8470');
   }
 
+  // stars from GameScene when it has them, otherwise our own simple three
+  starInfo(s) {
+    if (Array.isArray(s.starReasons) && s.starReasons.length) {
+      const got = Number.isFinite(s.stars) ? s.stars : s.starReasons.filter((r) => r.got).length;
+      return { stars: got, reasons: s.starReasons };
+    }
+    const reasons = [
+      { label: 'CLEARED', got: true },
+      { label: 'ALL HALOS', got: s.halosTotal > 0 && s.halos >= s.halosTotal },
+      { label: 'NO DEATHS', got: !s.deaths },
+    ];
+    return { stars: Number.isFinite(s.stars) ? s.stars : reasons.filter((r) => r.got).length, reasons };
+  }
+
   buildClear(cx, h) {
     const s = this.gameScene.state;
     const L = this.gameScene.level;
-    const next = nextLevel(this.gameScene.levelDef.id);
-    this.title(cx, h * 0.17, next ? 'IT IS FINISHED.' : 'IT IS FINISHED.\nFOR REAL THIS TIME.', next ? 64 : 48);
-    this.body(cx, h * 0.17 + (next ? 58 : 80), next ? `${L.name} CLEAR` : 'YOU BEAT BIBLE 2. THE SEQUEL IS IN DEVELOPMENT.', 24, '#ffd447');
-    const best = s.best && s.best.timeMs < Math.round(s.timeMs) ? `   (best ${fmtTime(s.best.timeMs)})` : s.best ? '   (new best)' : '';
-    const lines = [
-      `Time   ${fmtTime(s.timeMs)}${best}`,
-      `Halos   ${s.halos} / ${s.halosTotal}`,
-      `Smitten   ${s.kills}`,
-      `Deaths   ${s.deaths}`,
-    ];
-    this.body(cx, h * 0.43, lines.join('\n'), 26, '#fff6d6');
-    if (next) {
-      this.button(cx, h * 0.72, 'NEXT LEVEL', next.name, () => this.goToLevel(next.id));
-      this.button(cx - 180, h * 0.72 + 96, 'RIDE AGAIN', null, () => this.restartLevel(), false);
-      this.button(cx + 180, h * 0.72 + 96, 'WORLD MAP', null, () => this.toMap(), false);
-    } else {
-      this.button(cx - 180, h * 0.8, 'RIDE AGAIN', null, () => this.restartLevel());
-      this.button(cx + 180, h * 0.8, 'WORLD MAP', null, () => this.toMap(), false);
+    const def = this.gameScene.levelDef;
+    const next = nextLevel(def.id);
+    const { width } = this.scale;
+    const anim = !this.overlayData?.shown; // only animate the first time, not on resize
+    this.overlayData = { ...(this.overlayData || {}), shown: true };
+
+    this.title(cx, 54, next ? 'IT IS FINISHED.' : 'IT IS FINISHED. FOR REAL.', next ? 56 : 46);
+    this.body(cx, 104, next ? `${L.name} CLEAR` : 'THE FINAL CHAPTER IS WRITTEN', 22, '#ffd447');
+
+    // three stars
+    const { stars, reasons } = this.starInfo(s);
+    const starY = 166;
+    const pts = starPoints(34);
+    for (let i = 0; i < 3; i++) {
+      const x = cx + (i - 1) * 96;
+      const g = this.add.graphics({ x, y: starY });
+      g.fillStyle(0x0d0a18, 0.8).fillPoints(starPoints(40), true);
+      g.fillStyle(0x3a3150, 1).fillPoints(pts, true);
+      this.overlay.add(g);
+      if (i < stars) {
+        const gs = this.add.graphics({ x, y: starY });
+        gs.fillStyle(0xffd447, 1).fillPoints(pts, true);
+        gs.lineStyle(3, 0xfff3b0, 1).strokePoints(pts, true);
+        this.overlay.add(gs);
+        if (anim) {
+          gs.setScale(0).setAngle(-40);
+          this.tweens.add({ targets: gs, scale: 1, angle: 0, duration: 380, delay: 350 + i * 260, ease: 'Back.out', onStart: () => this.game.events.emit('sfx', 'halo') });
+        }
+      }
     }
+    const shownReasons = reasons.slice(0, 4);
+    const rw = Math.min(240, (width - 80) / Math.max(1, shownReasons.length));
+    shownReasons.forEach((r, i) => {
+      const x = cx + (i - (shownReasons.length - 1) / 2) * rw;
+      const t = this.add
+        .text(x, starY + 56, `${r.got ? '+' : '-'} ${String(r.label).toUpperCase()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: r.got ? '#ffd447' : '#8f8470' })
+        .setOrigin(0.5);
+      this.overlay.add(t);
+    });
+
+    // stats: run details on the left, score on the right
+    const statsY = 312;
+    const best = s.best && s.best.timeMs < Math.round(s.timeMs) ? `  (best ${fmtTime(s.best.timeMs)})` : s.best ? '  (new best)' : '';
+    const lines = [`Time   ${fmtTime(s.timeMs)}${best}`, `Halos   ${s.halos} / ${s.halosTotal}`, `Smitten   ${s.kills}`, `Deaths   ${s.deaths}`];
+    const hasScore = Number.isFinite(s.score);
+    this.body(hasScore ? cx - 170 : cx, statsY, lines.join('\n'), 22, '#fff6d6');
+    if (hasScore) {
+      this.body(cx + 200, statsY - 50, 'SCORE', 18, '#cfc2a4');
+      const sc = this.title(cx + 200, statsY - 12, fmtNum(anim ? 0 : s.score), 46, '#ffd447');
+      if (anim) {
+        const o = { v: 0 };
+        this.tweens.add({ targets: o, v: s.score, duration: 900, delay: 300, ease: 'Cubic.out', onUpdate: () => sc.setText(fmtNum(o.v)) });
+      }
+      const bits = [];
+      if (Number.isFinite(s.bestCombo)) bits.push(`Best combo   ${s.bestCombo}`);
+      if (Number.isFinite(s.bestStars)) bits.push(`Record   ${Math.max(s.bestStars, stars)} of 3 stars`);
+      if (bits.length) this.body(cx + 200, statsY + 44, bits.join('\n'), 18, '#cfc2a4');
+    }
+
+    const by = h - 142;
+    if (next) {
+      this.button(cx, by, 'NEXT LEVEL', next.name, () => this.goToLevel(next.id));
+    } else {
+      this.button(cx, by, 'THE END', 'read the final chapter', () => this.toEnding());
+    }
+    this.button(cx - 180, by + 92, 'RIDE AGAIN', null, () => this.restartLevel(), false);
+    this.button(cx + 180, by + 92, 'WORLD MAP', null, () => this.toMap(), false);
   }
 
   // ---------------------------------------------------------------- flow
@@ -439,6 +575,13 @@ export default class UIScene extends Phaser.Scene {
     this.hideOverlay();
     if (this.scene.isPaused('Game')) this.scene.resume('Game');
     this.gameScene.scene.restart({ levelId });
+  }
+
+  toEnding() {
+    const cid = this.gameScene.levelDef?.campaign || 'bible';
+    this.hideOverlay();
+    this.scene.stop('Game');
+    this.scene.start('Story', { ...outroFor(cid), next: { scene: 'Map', data: { campaign: cid } } });
   }
 
   toMap() {
