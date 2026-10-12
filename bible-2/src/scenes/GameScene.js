@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE, WORLD_HEIGHT, GROUND_Y, PLAYER, GUNS, LASER, POWERUPS, ENEMIES, WALLS, DEBUG, FONT } from '../config.js';
+import { TILE, WORLD_HEIGHT, GROUND_Y, PLAYER, GUNS, LASER, POWERUPS, ENEMIES, WALLS, DEBUG, FONT, FEEL } from '../config.js';
 import { buildLevel } from '../levels/builder.js';
 import { findLevel } from '../levels/campaign.js';
 import { THEMES, themeKeys } from '../themes.js';
@@ -12,6 +12,38 @@ const MOUTHY = ['bossSerpent', 'bossLeviathan', 'bossBabbler'];
 const KEY_POWERS = ['ghost', 'walk', 'staff', 'trumpet'];
 const SPEECH = ['REPENT', 'THE END IS NIGH', 'SMITE THEE', 'BEHOLD', 'WOE UNTO YOU', 'VERILY', 'HARK', 'BABEL RULES'];
 const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ?!';
+const STARS_KEY = 'bible2.stars';
+const COMBO_WORDS = ['', '', 'SMITE COMBO', 'HOLY COMBO', 'BIBLICAL COMBO', 'OLD TESTAMENT COMBO'];
+
+// ambient screen-space motes, one look per theme (unknown themes get gold dust)
+const AMBIENT = {
+  eden: { tint: [0xfff27a, 0xd7ff7a, 0xffffff], speedX: [-30, 20], speedY: [-20, 15], scale: [0.25, 0.55], life: 4200, every: 260, add: true },
+  egypt: { tint: [0xf2d28b, 0xe8c070], speedX: [-320, -180], speedY: [-10, 25], scale: [0.18, 0.4], life: 2600, every: 70, add: false },
+  redsea: { tint: [0xdff4ff, 0xbfe6ff], speedX: [-160, -70], speedY: [-50, 40], scale: [0.2, 0.45], life: 2400, every: 110, add: true },
+  jericho: { tint: [0xcdb48a, 0xb89a6a], speedX: [-60, -20], speedY: [-12, 18], scale: [0.2, 0.5], life: 4200, every: 160, add: false },
+  babel: { tint: [0xb98cff, 0xe0c8ff, 0x8f6bff], speedX: [-30, 10], speedY: [-40, -12], scale: [0.2, 0.5], life: 4000, every: 170, add: true },
+  revelation: { tint: [0xff7a2f, 0xffcf4d, 0xff3b30], speedX: [-90, -20], speedY: [-110, -40], scale: [0.2, 0.5], life: 2800, every: 90, add: true },
+  default: { tint: [0xfff1b0, 0xffd447], speedX: [-50, 0], speedY: [-30, 10], scale: [0.2, 0.45], life: 3600, every: 200, add: true },
+};
+
+function loadStars() {
+  try {
+    return JSON.parse(window.localStorage.getItem(STARS_KEY) || '{}') || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveStars(levelId, stars) {
+  try {
+    const all = loadStars();
+    all[levelId] = Math.max(all[levelId] || 0, stars);
+    window.localStorage.setItem(STARS_KEY, JSON.stringify(all));
+    return all[levelId];
+  } catch (e) {
+    return stars;
+  }
+}
 
 function scramble(phrase) {
   return phrase
@@ -66,7 +98,25 @@ export default class GameScene extends Phaser.Scene {
       walkUntil: 0,
       bossBar: null,
       best: null,
+      // scoring (the UI shows these, GameScene computes them)
+      score: 0,
+      combo: 0,
+      comboMult: 1,
+      comboLeftMs: 0,
+      bestCombo: 0,
+      stars: 0,
+      starReasons: [],
+      bestStars: loadStars()[this.levelDef.id] || 0,
     };
+    this.comboUntil = 0;
+    this.hitStopping = false;
+    this.hitStopUntil = 0;
+    this.slowMoUntil = 0;
+    this.zoomPunch = 0;
+    this.sq = { x: 1, y: 1 };
+    this.wasGrounded = true;
+    this.airSince = 0;
+    this.nextDustAt = 0;
 
     this.physics.world.setBounds(0, -1000, L.width, WORLD_HEIGHT + 2000);
 
@@ -262,6 +312,10 @@ export default class GameScene extends Phaser.Scene {
     this.player.play(this.skin.run);
     this.player.body.setSize(60, 76).setOffset(36, 34);
     this.player.body.setMaxVelocityY(1500);
+    // The physics sprite stays unscaled (its body would resize with it). A twin draws the hero
+    // so we can squash and stretch without touching collisions.
+    this.player.setVisible(false);
+    this.heroVis = this.add.sprite(this.player.x, this.player.y, this.skin.idle).setDepth(4).setOrigin(0.5, 1);
     this.wingFront = this.add.sprite(0, 0, 'wing0').setDepth(5).setVisible(false);
     this.wingBack.play('flap');
     this.wingFront.play('flap');
@@ -354,6 +408,216 @@ export default class GameScene extends Phaser.Scene {
         emitting: false,
       })
       .setDepth(7);
+
+    // landing and running dust, tinted to the ground
+    this.dust = this.add
+      .particles(0, 0, 'spark', {
+        lifespan: { min: 280, max: 520 },
+        speedX: { min: -160, max: 40 },
+        speedY: { min: -120, max: -20 },
+        gravityY: 300,
+        scale: { start: 0.9, end: 0 },
+        alpha: { start: 0.7, end: 0 },
+        tint: this.theme.dirt?.[0] ?? 0xcdb48a,
+        emitting: false,
+      })
+      .setDepth(3.9);
+
+    // bullet impact sparks
+    this.sparks = this.add
+      .particles(0, 0, 'spark', {
+        lifespan: 220,
+        speed: { min: 140, max: 360 },
+        angle: { min: 120, max: 240 },
+        scale: { start: 0.7, end: 0 },
+        tint: [0xffffff, 0xffe14d, 0xffb347],
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(7.2);
+
+    // bullet tracers
+    this.tracerGfx = this.add.graphics().setDepth(5.9).setBlendMode(Phaser.BlendModes.ADD);
+
+    // ambient motes in screen space
+    const a = AMBIENT[this.level.theme] || AMBIENT.default;
+    this.ambient = this.add
+      .particles(0, 0, 'spark', {
+        x: { min: 0, max: Math.max(1200, this.scale.width + 200) },
+        y: { min: 0, max: this.scale.height },
+        lifespan: a.life,
+        speedX: { min: a.speedX[0], max: a.speedX[1] },
+        speedY: { min: a.speedY[0], max: a.speedY[1] },
+        scale: { min: a.scale[0], max: a.scale[1] },
+        alpha: { values: [0, 0.85, 0.85, 0] },
+        tint: a.tint,
+        frequency: a.every,
+        blendMode: a.add ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
+      })
+      .setScrollFactor(0)
+      .setDepth(7.6);
+    this.ambient.fastForward(a.life);
+  }
+
+  // ---------------------------------------------------------------- juice
+
+  // freeze frame. Safe: always resumes, never fights die()/resurrect() over the pause.
+  hitStop(ms) {
+    if (this.state.status !== 'playing' || !ms) return;
+    const w = this.physics.world;
+    if (w.isPaused && !this.hitStopping) return;
+    this.hitStopUntil = Math.max(this.hitStopUntil, this.time.now + ms);
+    if (!this.hitStopping) {
+      this.hitStopping = true;
+      w.pause();
+    }
+    this.time.delayedCall(ms, () => this.endHitStop());
+  }
+
+  endHitStop(force = false) {
+    if (!this.hitStopping) return;
+    if (!force && this.time.now < this.hitStopUntil - 1) return;
+    this.hitStopping = false;
+    if (this.state.status !== 'dead') this.physics.world.resume();
+  }
+
+  slowMo(ms) {
+    this.slowMoUntil = this.time.now + ms;
+    this.physics.world.timeScale = FEEL.slowMoScale;
+    this.tweens.timeScale = 1 / FEEL.slowMoScale;
+    this.time.delayedCall(ms, () => this.endSlowMo());
+  }
+
+  endSlowMo() {
+    if (this.time.now < this.slowMoUntil - 1 && this.state.status === 'playing') return;
+    this.slowMoUntil = 0;
+    this.physics.world.timeScale = 1;
+    this.tweens.timeScale = 1;
+  }
+
+  addScore(points, x, y, color = '#ffe14d', size = 20) {
+    const s = this.state;
+    const pts = Math.round(points);
+    s.score += pts;
+    if (x !== undefined) this.popText(x, y, `+${pts}`, color, size);
+  }
+
+  // a kill feeds the chain: every FEEL.comboStep kills bumps the multiplier
+  scoreKill(e, stomp = false) {
+    const s = this.state;
+    const now = this.time.now;
+    if (now > this.comboUntil) s.combo = 0;
+    s.combo++;
+    this.comboUntil = now + FEEL.comboWindowMs;
+    s.bestCombo = Math.max(s.bestCombo, s.combo);
+    const mult = Math.min(FEEL.comboMaxMult, 1 + Math.floor(s.combo / FEEL.comboStep));
+    if (mult > s.comboMult) {
+      s.comboMult = mult;
+      this.popText(this.player.x + 40, this.player.y - 130, `x${mult} ${COMBO_WORDS[mult]}`, '#ff8fd0', 30 + mult * 2, 1100);
+      this.events.emit('combo', mult);
+    }
+    const def = ENEMIES[e.kind];
+    const base = FEEL.killScore + Math.max(0, (def?.hp || 1) - 1) * 25;
+    this.addScore(base * (stomp ? FEEL.stompBonus : 1) * s.comboMult, e.x, e.y - 50);
+  }
+
+  breakCombo() {
+    const s = this.state;
+    if (s.combo >= FEEL.comboStep) this.popText(this.player.x, this.player.y - 120, 'COMBO LOST', '#ff6b6b', 22);
+    s.combo = 0;
+    s.comboMult = 1;
+    s.comboLeftMs = 0;
+    this.comboUntil = 0;
+  }
+
+  popText(x, y, str, color, size = 20, ms = 700) {
+    const t = this.add
+      .text(x, y, str, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color, stroke: '#1b1430', strokeThickness: 5 })
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setScale(0.4);
+    this.tweens.add({ targets: t, scale: 1, duration: 140, ease: 'Back.out' });
+    this.tweens.add({ targets: t, y: y - 50, alpha: 0, delay: ms * 0.45, duration: ms * 0.55, ease: 'Cubic.in', onComplete: () => t.destroy() });
+  }
+
+  // the dead enemy pops, spins and falls off the screen instead of vanishing
+  deathFling(e) {
+    if (!e.texture || !e.frame) return;
+    const d = this.add.image(e.x, e.y, e.texture.key, e.frame.name).setDepth(7).setFlipX(e.flipX).setRotation(e.rotation);
+    d.setTintFill(0xffffff);
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    this.tweens.add({ targets: d, scale: 1.35, duration: 70, yoyo: true, onComplete: () => d.active && d.clearTint() });
+    this.tweens.add({ targets: d, x: e.x + 140 + Math.random() * 120, angle: dir * (300 + Math.random() * 240), duration: 760, ease: 'Linear' });
+    this.tweens.add({ targets: d, y: e.y - 90, duration: 230, ease: 'Quad.out', yoyo: false, onComplete: () => {
+      if (!d.active) return;
+      this.tweens.add({ targets: d, y: WORLD_HEIGHT + 120, alpha: 0.6, duration: 560, ease: 'Quad.in', onComplete: () => d.destroy() });
+    } });
+  }
+
+  speedLines() {
+    const p = this.player;
+    for (let i = 0; i < 4; i++) {
+      const y = p.y - 30 + i * 22 + Math.random() * 8;
+      const l = this.add.rectangle(p.x - 50, y, 70 + Math.random() * 50, 3, 0xffffff, 0.8).setOrigin(1, 0.5).setDepth(3.8);
+      this.tweens.add({ targets: l, x: p.x - 200, scaleX: 0.2, alpha: 0, duration: 260, ease: 'Quad.out', onComplete: () => l.destroy() });
+    }
+  }
+
+  // draws the hero twin with squash and stretch, after the physics sprite has moved
+  syncHero(time, delta) {
+    const p = this.player;
+    const v = this.heroVis;
+    if (!v) return;
+    v.setTexture(p.texture.key, p.frame.name);
+    v.setFlipX(p.flipX).setAlpha(p.alpha).setRotation(p.rotation);
+    if (p.isTinted) v.setTint(p.tintTopLeft);
+    else v.clearTint();
+    let tx = 1;
+    let ty = 1;
+    const body = p.body;
+    if (!this.grounded && !this.ghosting && this.state.status === 'playing') {
+      const st = Math.min(0.12, Math.abs(body.velocity.y) / 6000);
+      tx = 1 - st * 0.6;
+      ty = 1 + st;
+    }
+    const k = Math.min(1, delta / 70);
+    this.sq.x += (tx - this.sq.x) * k;
+    this.sq.y += (ty - this.sq.y) * k;
+    v.setScale(this.sq.x, this.sq.y);
+    v.setPosition(p.x, p.y + p.displayHeight * (1 - p.originY));
+  }
+
+  updateJuice(time, delta) {
+    const s = this.state;
+    const cam = this.cameras.main;
+    // combo timer
+    if (s.combo > 0) {
+      s.comboLeftMs = Math.max(0, this.comboUntil - time);
+      if (s.comboLeftMs <= 0 && s.status === 'playing') this.breakCombo();
+    }
+    // never let a freeze frame stick
+    if (this.hitStopping && time > this.hitStopUntil + 250) this.endHitStop(true);
+    if (this.slowMoUntil && time > this.slowMoUntil + 250) this.endSlowMo();
+    // punch zoom decays back to rest
+    this.zoomPunch *= Math.pow(0.0025, delta / 1000);
+    if (this.zoomPunch < 0.002) this.zoomPunch = 0;
+    // bullet tracers
+    const g = this.tracerGfx;
+    g.clear();
+    for (const b of this.bullets.getChildren()) {
+      if (!b.active) continue;
+      const vx = b.body.velocity.x;
+      const vy = b.body.velocity.y;
+      g.lineStyle(4, 0xffd447, 0.35);
+      g.lineBetween(b.x - vx * 0.032, b.y - vy * 0.032, b.x, b.y);
+      g.lineStyle(2, 0xfff6c8, 0.7);
+      g.lineBetween(b.x - vx * 0.016, b.y - vy * 0.016, b.x, b.y);
+    }
+    // run dust
+    if (this.grounded && s.status !== 'dead' && !this.ghosting && time > this.nextDustAt && this.isOverGround(this.player.x)) {
+      this.nextDustAt = time + 70;
+      this.dust.emitParticleAt(this.player.x - 30 + Math.random() * 20, this.player.body.bottom - 2, 1);
+    }
   }
 
   buildColliders() {
@@ -465,6 +729,7 @@ export default class GameScene extends Phaser.Scene {
       this.doJump(PLAYER.doubleJumpVelocity);
       this.rainbow.explode(24);
       this.flapUntil = now + 450;
+      this.speedLines();
       this.sfx('doubleJump');
       return 'air';
     }
@@ -486,6 +751,8 @@ export default class GameScene extends Phaser.Scene {
 
   doJump(v) {
     this.player.body.setVelocityY(-v);
+    this.sq.x = 0.78;
+    this.sq.y = 1.26;
     this.lastGroundedAt = -Infinity;
     this.jumpLockUntil = this.time.now + 140;
     this.jumpBufferedAt = -Infinity;
@@ -504,6 +771,7 @@ export default class GameScene extends Phaser.Scene {
     this.laserTick = 0;
     this.cameras.main.shake(LASER.durationMs, 0.006);
     this.cameras.main.flash(160, 255, 90, 90);
+    this.zoomPunch = Math.max(this.zoomPunch, 0.06);
     this.floatText(this.player.x + 60, this.player.y - 120, this.skin.laserText, '#ff3b30', 40);
     return true;
   }
@@ -526,6 +794,7 @@ export default class GameScene extends Phaser.Scene {
       this.player.body.setVelocityX(PLAYER.runSpeed);
       this.updateGunsPose(time);
     }
+    this.updateJuice(time, delta);
 
     // camera follows horizontally only
     const maxScroll = Math.max(0, this.level.width - cam.width);
@@ -540,7 +809,7 @@ export default class GameScene extends Phaser.Scene {
     // Water into Wine: a little wobble while the shield is up
     const wine = time < s.wineUntil && s.status === 'playing';
     cam.setRotation(wine ? Math.sin(time / 280) * 0.012 : 0);
-    cam.setZoom(wine ? 1.03 : 1);
+    cam.setZoom((wine ? 1.03 : 1) + this.zoomPunch);
 
     this.updateMovers(delta);
     this.updateEnemies(time, delta);
@@ -548,6 +817,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateBoss(time, delta);
     this.updateBeams(time);
     this.cleanup();
+    this.syncHero(time, delta);
   }
 
   updatePlayer(time, delta) {
@@ -573,6 +843,14 @@ export default class GameScene extends Phaser.Scene {
 
     const grounded = body.blocked.down && time >= this.jumpLockUntil;
     this.grounded = grounded;
+    if (grounded && !this.wasGrounded && time - this.airSince > 160 && !this.ghosting) {
+      // land: squash and a puff of dust
+      this.sq.x = 1.28;
+      this.sq.y = 0.76;
+      this.dust.explode(9, p.x - 6, body.bottom - 2);
+    }
+    if (!grounded && this.wasGrounded) this.airSince = time;
+    this.wasGrounded = grounded;
     if (grounded) {
       this.lastGroundedAt = time;
       this.airJumps = 0;
@@ -717,7 +995,12 @@ export default class GameScene extends Phaser.Scene {
     this.sfx('shoot');
 
     g.kick = 4;
-    g.flash.setPosition(mx - 4, my).setRotation(a).setVisible(true).setScale(0.8 + Math.random() * 0.5);
+    g.flash
+      .setPosition(mx - 4, my)
+      .setRotation(a + (Math.random() - 0.5) * 0.25)
+      .setVisible(true)
+      .setScale(0.7 + Math.random() * 0.7, 0.6 + Math.random() * 0.8)
+      .setFlipY(Math.random() < 0.5);
     this.time.delayedCall(40, () => g.flash.setVisible(false));
     this.brass.emitParticleAt(g.img.x + 6, g.img.y - 2, 1);
   }
@@ -789,7 +1072,9 @@ export default class GameScene extends Phaser.Scene {
     });
     this.walls.getChildren().filter(inView).forEach((wl) => this.damageWall(wl, 6));
     this.shots.getChildren().filter(inView).forEach((f) => this.popShot(f));
-    this.bossGroup.getChildren().filter(inView).forEach((part) => this.damageBoss(part, LASER.bossDamage));
+    const bossParts = this.bossGroup.getChildren().filter(inView);
+    bossParts.forEach((part) => this.damageBoss(part, LASER.bossDamage));
+    if (bossParts.length) this.hitStop(FEEL.hitStopBossMs);
   }
 
   updateMovers(delta) {
@@ -1195,6 +1480,9 @@ export default class GameScene extends Phaser.Scene {
     }
     this.cameras.main.shake(600, 0.01);
     this.floatText(sp.x, sp.y - 150, 'SMITTEN.', '#ffe14d', 40);
+    this.hitStop(FEEL.hitStopPhaseMs);
+    this.zoomPunch = Math.max(this.zoomPunch, 0.05);
+    this.addScore(FEEL.bossPhaseScore * this.state.comboMult, sp.x, sp.y - 100, '#ffd447');
     this.tweens.killTweensOf(b);
     b.busy = true;
     b.offY = 0;
@@ -1213,6 +1501,27 @@ export default class GameScene extends Phaser.Scene {
     if (!b || !b.alive) return;
     b.alive = false;
     this.bossDone = true;
+    const sp0 = b.sprite;
+    if (sp0) {
+      const cx = sp0.x;
+      const cy = sp0.y;
+      for (let i = 0; i < 12; i++) {
+        this.time.delayedCall(i * 90, () => {
+          const x = cx + Phaser.Math.Between(-140, 140);
+          const y = cy + Phaser.Math.Between(-120, 120);
+          this.puff.setParticleTint(Phaser.Utils.Array.GetRandom([0xffe14d, 0xff7a2f, 0xffffff, 0xff3b30]));
+          this.puff.explode(18, x, y);
+          this.sparks.explode(8, x, y);
+          const ring = this.add.circle(x, y, 20, 0xfff3b0, 0.8).setDepth(7.5).setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({ targets: ring, scale: 4, alpha: 0, duration: 360, onComplete: () => ring.destroy() });
+        });
+      }
+    }
+    this.cameras.main.flash(380, 255, 255, 255);
+    this.cameras.main.shake(700, 0.012);
+    this.zoomPunch = Math.max(this.zoomPunch, 0.09);
+    this.slowMo(FEEL.slowMoMs);
+    this.addScore(FEEL.bossDefeatScore, this.player.x + 120, this.player.y - 160, '#ffd447');
     if (b.sprite?.active) {
       this.bossGroup.remove(b.sprite);
       this.tweens.add({ targets: b.sprite, alpha: 0, duration: 600 });
@@ -1262,8 +1571,11 @@ export default class GameScene extends Phaser.Scene {
     const falling = p.body.velocity.y > 0;
     const fromAbove = p.body.bottom <= e.body.top + 20;
     if (falling && fromAbove) {
-      this.killEnemy(e);
+      this.killEnemy(e, false, true);
       p.body.setVelocityY(-PLAYER.stompBounce);
+      this.sq.x = 1.3;
+      this.sq.y = 0.75;
+      this.hitStop(FEEL.hitStopStompMs);
       this.airJumps = 0;
       this.jumpLockUntil = this.time.now + 140;
       this.floatText(e.x, e.y - 30, 'SMITE!', '#ffe14d', 28);
@@ -1274,22 +1586,29 @@ export default class GameScene extends Phaser.Scene {
 
   onBulletHit(b, e) {
     if (!b.active || !e.active) return;
+    this.sparks.explode(4, b.x + 8, b.y);
     this.killBullet(b, 0xffe14d);
     e.hp -= GUNS.damage;
     this.sfx('enemyHit');
     e.setTintFill(0xffffff);
     this.time.delayedCall(50, () => e.active && e.clearTint());
-    if (e.hp <= 0) this.killEnemy(e);
+    if (e.hp <= 0) {
+      if (ENEMIES[e.kind].hp >= 5) this.hitStop(FEEL.hitStopBigKillMs);
+      this.killEnemy(e);
+    }
   }
 
-  killEnemy(e, byLaser = false) {
+  killEnemy(e, byLaser = false, stomp = false) {
     if (!e.active) return;
     const s = this.state;
     s.kills++;
     this.sfx('kill', e.kind);
     if (!byLaser) s.laser = Math.min(LASER.meterMax, s.laser + LASER.perKill);
+    if (s.status === 'playing') this.scoreKill(e, stomp);
     this.puff.setParticleTint(ENEMIES[e.kind].tint);
     this.puff.explode(16, e.x, e.y);
+    this.sparks.explode(6, e.x, e.y);
+    this.deathFling(e);
     e.destroy();
   }
 
@@ -1309,6 +1628,7 @@ export default class GameScene extends Phaser.Scene {
       case 'halo':
         s.halos++;
         s.laser = Math.min(LASER.meterMax, s.laser + LASER.perHalo);
+        this.addScore(FEEL.haloScore * s.comboMult, item.x, item.y - 24, '#fff3b0', 15);
         this.glitter.explode(6, item.x, item.y);
         break;
       case 'loaves':
@@ -1387,7 +1707,13 @@ export default class GameScene extends Phaser.Scene {
     s.hearts--;
     this.sfx('hurt');
     this.invulnUntil = now + PLAYER.hurtInvulnMs;
-    this.cameras.main.shake(180, 0.01);
+    this.cameras.main.shake(220, 0.014);
+    this.cameras.main.flash(140, 255, 50, 50);
+    this.breakCombo();
+    // knockback hop, only off solid footing so it never costs you a jump over a pit
+    if (this.player.body.blocked.down) this.player.body.setVelocityY(-320);
+    this.sq.x = 0.8;
+    this.sq.y = 1.2;
     this.player.setTint(0xff6b6b);
     this.time.delayedCall(160, () => !this.ghosting && this.player.clearTint());
     if (s.hearts <= 0) this.die('hit');
@@ -1402,6 +1728,9 @@ export default class GameScene extends Phaser.Scene {
     s.deathCause = cause;
     s.deaths++;
     s.hearts = 0;
+    this.hitStopping = false;
+    this.endSlowMo();
+    this.breakCombo();
     this.releaseAll();
     this.laserGfx.clear();
     this.laserUntil = 0;
@@ -1469,6 +1798,19 @@ export default class GameScene extends Phaser.Scene {
     this.laserGfx.clear();
     this.guns.forEach((g) => g.flash.setVisible(false));
     if (this.ghosting) this.endGhost();
+    this.endHitStop(true);
+    this.endSlowMo();
+    // score bonuses and stars
+    const noDeaths = s.deaths === 0 && s.resurrectsUsed === 0;
+    const haloOk = s.halosTotal === 0 || s.halos / s.halosTotal >= FEEL.haloStarFraction;
+    s.score += FEEL.clearScore + (noDeaths ? FEEL.noDeathScore : 0);
+    s.starReasons = [
+      { label: 'Finished', got: true },
+      { label: 'No deaths', got: noDeaths },
+      { label: `${Math.round(FEEL.haloStarFraction * 100)}% of halos`, got: haloOk },
+    ];
+    s.stars = s.starReasons.filter((r) => r.got).length;
+    s.bestStars = saveStars(this.levelDef.id, s.stars);
     s.best = saveBest(this.levelDef.id, { timeMs: Math.round(s.timeMs), halos: s.halos, kills: s.kills });
     markCleared(this.levelDef.id);
     if (this.gate) this.glitter.explode(40, this.gate.x, GROUND_Y - 150);

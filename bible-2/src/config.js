@@ -79,6 +79,27 @@ export const ENEMIES = {
 
 export const WALLS = { hpPerTile: 6 };
 
+// Game juice and scoring. None of this changes reach, it only changes how it feels.
+export const FEEL = {
+  hitStopStompMs: 55, // freeze frame on a stomp kill
+  hitStopBigKillMs: 40, // freeze frame when a tough enemy goes down
+  hitStopBossMs: 28, // laser ticks on a boss
+  hitStopPhaseMs: 120, // a boss phase goes down
+  slowMoMs: 700, // boss defeat slow motion (real time)
+  slowMoScale: 2.6, // physics time scale during it (bigger = slower)
+  comboWindowMs: 2500, // a kill within this keeps the chain alive
+  comboStep: 5, // multiplier grows every this many kills in a chain
+  comboMaxMult: 5,
+  killScore: 100,
+  stompBonus: 2, // stomps score double
+  haloScore: 25,
+  bossPhaseScore: 2500,
+  bossDefeatScore: 5000,
+  clearScore: 1000,
+  noDeathScore: 1500,
+  haloStarFraction: 0.8,
+};
+
 export const COLORS = {
   sky: 0x8fd3ff,
   gold: 0xffd447,
