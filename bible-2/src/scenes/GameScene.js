@@ -495,11 +495,11 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.timeScale = 1;
   }
 
-  addScore(points, x, y, color = '#ffe14d') {
+  addScore(points, x, y, color = '#ffe14d', size = 20) {
     const s = this.state;
     const pts = Math.round(points);
     s.score += pts;
-    if (x !== undefined) this.popText(x, y, `+${pts}`, color, 20);
+    if (x !== undefined) this.popText(x, y, `+${pts}`, color, size);
   }
 
   // a kill feeds the chain: every FEEL.comboStep kills bumps the multiplier
@@ -609,9 +609,9 @@ export default class GameScene extends Phaser.Scene {
       const vx = b.body.velocity.x;
       const vy = b.body.velocity.y;
       g.lineStyle(4, 0xffd447, 0.35);
-      g.lineBetween(b.x - vx * 0.045, b.y - vy * 0.045, b.x, b.y);
+      g.lineBetween(b.x - vx * 0.032, b.y - vy * 0.032, b.x, b.y);
       g.lineStyle(2, 0xfff6c8, 0.7);
-      g.lineBetween(b.x - vx * 0.02, b.y - vy * 0.02, b.x, b.y);
+      g.lineBetween(b.x - vx * 0.016, b.y - vy * 0.016, b.x, b.y);
     }
     // run dust
     if (this.grounded && s.status !== 'dead' && !this.ghosting && time > this.nextDustAt && this.isOverGround(this.player.x)) {
@@ -1628,7 +1628,7 @@ export default class GameScene extends Phaser.Scene {
       case 'halo':
         s.halos++;
         s.laser = Math.min(LASER.meterMax, s.laser + LASER.perHalo);
-        this.addScore(FEEL.haloScore * s.comboMult, item.x, item.y - 24, '#fff3b0');
+        this.addScore(FEEL.haloScore * s.comboMult, item.x, item.y - 24, '#fff3b0', 15);
         this.glitter.explode(6, item.x, item.y);
         break;
       case 'loaves':
