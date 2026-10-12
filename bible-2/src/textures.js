@@ -407,24 +407,34 @@ function drawDirt(g) {
   g.fillStyle(0x7a4f2e);
   g.fillRect(0, 0, 64, 64);
   g.fillStyle(0x6a4226);
-  [[10, 30], [40, 12], [24, 50], [52, 40], [6, 6], [34, 28]].forEach(([x, y]) => g.fillEllipse(x, y, 9, 5));
+  [[10, 30], [40, 12], [24, 50], [52, 40], [6, 6], [34, 28]].forEach(([x, y]) => g.fillEllipse(x, y, 10, 6));
   g.fillStyle(0x8f6440);
-  [[18, 40], [48, 56], [30, 16]].forEach(([x, y]) => g.fillCircle(x, y, 2));
+  [[10, 28], [40, 10], [24, 48], [52, 38], [34, 26]].forEach(([x, y]) => g.fillEllipse(x - 1, y - 1, 5, 2));
+  g.fillStyle(0xa8805a);
+  [[18, 40], [48, 56], [30, 16], [58, 22]].forEach(([x, y]) => g.fillCircle(x, y, 1.8));
+  g.fillStyle(0x4f321c, 0.6);
+  [[44, 46], [14, 58], [60, 4]].forEach(([x, y]) => g.fillCircle(x, y, 1.5));
 }
 
 function drawGround(g) {
-  g.fillStyle(0x7a4f2e);
-  g.fillRect(0, 0, 64, 64);
-  g.fillStyle(0x6a4226);
-  [[10, 30], [40, 22], [24, 50], [52, 46], [6, 58], [34, 38]].forEach(([x, y]) => g.fillEllipse(x, y, 9, 5));
-  g.fillStyle(0x8f6440);
-  [[18, 40], [48, 56], [30, 26]].forEach(([x, y]) => g.fillCircle(x, y, 2));
+  drawDirt(g);
+  // grass band: dark base, mid, sunlit top, blades
+  g.fillStyle(0x2f7a2a);
+  g.fillRect(0, 0, 64, 16);
+  for (let x = 0; x < 64; x += 8) g.fillTriangle(x, 15, x + 8, 15, x + 4, 22);
   g.fillStyle(0x4aa63c);
-  g.fillRect(0, 0, 64, 14);
+  g.fillRect(0, 0, 64, 13);
+  for (let x = 0; x < 64; x += 8) g.fillTriangle(x + 1, 13, x + 7, 13, x + 4, 18);
   g.fillStyle(0x6ccf52);
   g.fillRect(0, 0, 64, 6);
-  g.fillStyle(0x4aa63c);
-  for (let x = 0; x < 64; x += 8) g.fillTriangle(x, 14, x + 8, 14, x + 4, 20);
+  g.fillStyle(0x9be87a);
+  g.fillRect(0, 0, 64, 2);
+  g.lineStyle(1.5, 0x9be87a, 0.8);
+  [[6, 9], [20, 10], [34, 8], [50, 10]].forEach(([x, y]) => g.lineBetween(x, y, x + 3, y - 4));
+  g.fillStyle(0xffffff);
+  g.fillCircle(27, 5, 1.5);
+  g.fillStyle(0xffe14d);
+  g.fillCircle(57, 6, 1.5);
 }
 
 function drawPlatform(g) {
@@ -458,29 +468,97 @@ function drawThorns(g) {
 }
 
 function drawGate(g) {
-  g.fillStyle(0xfff6d6, 0.35);
-  g.fillRect(30, 60, 120, 240);
-  g.fillEllipse(90, 66, 120, 110);
-  g.fillStyle(0xffd447);
-  g.fillRect(14, 70, 22, 230);
-  g.fillRect(144, 70, 22, 230);
+  // light rays fanning up from behind the gate
+  for (let i = 0; i < 9; i++) {
+    const a = -Math.PI / 2 + (i - 4) * 0.2;
+    const ex = 90 + Math.cos(a) * 240;
+    const ey = 200 + Math.sin(a) * 240;
+    g.fillStyle(0xfff6d6, i % 2 ? 0.12 : 0.2);
+    g.fillTriangle(90 - 6, 200, 90 + 6, 200, ex, ey);
+  }
+  glow(g, 90, 140, 80, 0xfff6d6, 0.08, 6);
+  // the doorway glow
+  g.fillStyle(0xfff6d6, 0.45);
+  g.fillRect(30, 80, 120, 220);
+  g.fillEllipse(90, 80, 120, 100);
+  g.fillStyle(0xffffff, 0.35);
+  g.fillRect(50, 100, 80, 200);
+  // pillars: outline, gold, highlight stripe, pearl studs
+  [[14, 70], [144, 70]].forEach(([x, y]) => {
+    g.fillStyle(0x9a7420);
+    g.fillRect(x - 2, y, 26, 230);
+    g.fillStyle(0xffd447);
+    g.fillRect(x, y, 22, 230);
+    g.fillStyle(0xfff3b0);
+    g.fillRect(x + 4, y, 5, 230);
+    g.fillStyle(0xc99a1a);
+    g.fillRect(x + 16, y, 6, 230);
+    for (let py = y + 20; py < 290; py += 30) {
+      g.fillStyle(0xe8e4f0);
+      g.fillCircle(x + 11, py, 5);
+      g.fillStyle(0xffffff);
+      g.fillCircle(x + 9.5, py - 1.5, 2);
+    }
+  });
+  // arch, layered
+  g.lineStyle(24, 0x9a7420);
+  g.beginPath();
+  g.arc(90, 80, 66, Math.PI, 0, false);
+  g.strokePath();
   g.lineStyle(20, 0xffd447);
   g.beginPath();
   g.arc(90, 80, 66, Math.PI, 0, false);
   g.strokePath();
+  g.lineStyle(4, 0xfff3b0);
+  g.beginPath();
+  g.arc(90, 80, 72, Math.PI * 1.05, Math.PI * 1.7, false);
+  g.strokePath();
+  // pearls along the arch
+  for (let i = 0; i <= 10; i++) {
+    const a = Math.PI + (i / 10) * Math.PI;
+    const px = 90 + Math.cos(a) * 66;
+    const py = 80 + Math.sin(a) * 66;
+    g.fillStyle(0xe8e4f0);
+    g.fillCircle(px, py, 6);
+    g.fillStyle(0xffffff);
+    g.fillCircle(px - 2, py - 2, 2.4);
+  }
+  // wrought gold bars
+  g.lineStyle(3, 0xc99a1a, 0.85);
+  for (let bx = 46; bx <= 134; bx += 22) g.lineBetween(bx, 96, bx, 300);
+  g.lineStyle(3, 0xc99a1a, 0.85);
+  g.lineBetween(36, 180, 144, 180);
+  // plinths
+  g.fillStyle(0x9a7420);
+  g.fillRect(8, 282, 34, 18);
+  g.fillRect(138, 282, 34, 18);
+  g.fillStyle(0xd9b44a);
+  g.fillRect(8, 282, 34, 6);
+  g.fillRect(138, 282, 34, 6);
+  // cross on top, glowing
+  glow(g, 90, 12, 16, 0xfff3b0, 0.14, 4);
   g.fillStyle(0xc99a1a);
-  g.fillRect(8, 284, 34, 16);
-  g.fillRect(138, 284, 34, 16);
+  g.fillRect(83, 0, 14, 28);
+  g.fillRect(75, 5, 30, 10);
   g.fillStyle(0xffd447);
-  g.fillRect(84, 0, 12, 26);
-  g.fillRect(76, 6, 28, 8);
+  g.fillRect(85, 0, 10, 26);
+  g.fillRect(77, 7, 26, 6);
+  g.fillStyle(0xfff3b0);
+  g.fillRect(86, 1, 3, 24);
 }
 
 function drawHalo(g) {
-  g.lineStyle(5, 0xffd447);
+  glow(g, 15, 15, 15, 0xfff3b0, 0.1, 4);
+  g.lineStyle(6, 0xc99a1a);
   g.strokeEllipse(15, 15, 24, 24);
-  g.lineStyle(2, 0xfff3b0);
-  g.strokeEllipse(15, 15, 16, 16);
+  g.lineStyle(4, 0xffd447);
+  g.strokeEllipse(15, 15, 24, 24);
+  g.lineStyle(1.5, 0xfff8d0);
+  g.beginPath();
+  g.arc(15, 15, 11, Math.PI * 1.05, Math.PI * 1.6, false);
+  g.strokePath();
+  g.fillStyle(0xffffff);
+  g.fillCircle(8, 9, 1.6);
 }
 
 export function drawBubble(g) {
@@ -544,40 +622,102 @@ function drawHeart(g, full) {
   }
 }
 
+// lighten (k > 0) toward white or darken (k < 0) toward black
+export function shade(c, k) {
+  const r = (c >> 16) & 255;
+  const gr = (c >> 8) & 255;
+  const b = c & 255;
+  const f = (v) => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k));
+  return (f(r) << 16) | (f(gr) << 8) | f(b);
+}
+
 export function drawHills(g, w, h, color, amp, base, waves) {
-  g.fillStyle(color);
   const bottom = h - 3;
-  const pts = [[0, bottom]];
-  for (let x = 0; x <= w; x += 8) {
-    const y = base + Math.sin((x / w) * Math.PI * 2 * waves) * amp + Math.sin((x / w) * Math.PI * 2 * (waves + 1)) * amp * 0.4;
-    pts.push([x, y]);
+  const yAt = (x) => base + Math.sin((x / w) * Math.PI * 2 * waves) * amp + Math.sin((x / w) * Math.PI * 2 * (waves + 1)) * amp * 0.4;
+  const ridge = [];
+  for (let x = 0; x <= w; x += 8) ridge.push([x, yAt(x)]);
+  // sunlit rim
+  g.fillStyle(shade(color, 0.28));
+  poly(g, [[0, bottom], ...ridge.map(([x, y]) => [x, y - 3]), [w, bottom]]);
+  g.fillStyle(color);
+  poly(g, [[0, bottom], ...ridge.map(([x, y]) => [x, y + 2]), [w, bottom]]);
+  // shaded lower slopes
+  g.fillStyle(shade(color, -0.12));
+  poly(g, [[0, bottom], ...ridge.map(([x, y]) => [x, y + (bottom - y) * 0.45 + 6]), [w, bottom]]);
+  g.fillStyle(shade(color, -0.22), 0.7);
+  poly(g, [[0, bottom], ...ridge.map(([x, y]) => [x, y + (bottom - y) * 0.75 + 8]), [w, bottom]]);
+  // a few highlight strokes on the sunny faces
+  g.lineStyle(2, shade(color, 0.4), 0.55);
+  for (let x = 24; x < w; x += 72) {
+    const y = yAt(x) + 10;
+    g.lineBetween(x, y, x + 18, y + 2);
   }
-  pts.push([w, bottom]);
-  poly(g, pts);
 }
 
 function drawTrees(g) {
   const trees = [[70, 1], [250, 0.8], [400, 1.15]];
   trees.forEach(([x, s]) => {
-    g.fillStyle(0x6b4a2b);
-    g.fillRect(x - 7 * s, 260 - 120 * s, 14 * s, 120 * s - 4);
+    // ground shadow
+    g.fillStyle(0x2a5a2a, 0.35);
+    g.fillEllipse(x + 6 * s, 257, 90 * s, 10 * s);
+    // trunk with bark shading
+    g.fillStyle(0x4a321c);
+    g.fillRect(x - 8 * s, 260 - 120 * s, 16 * s, 120 * s - 4);
+    g.fillStyle(0x7a5532);
+    g.fillRect(x - 6 * s, 260 - 120 * s, 9 * s, 120 * s - 4);
+    g.fillStyle(0x9a7048, 0.7);
+    g.fillRect(x - 5 * s, 260 - 110 * s, 3 * s, 100 * s);
+    g.fillStyle(0x4a321c);
+    g.fillTriangle(x - 8 * s, 256, x - 18 * s, 258, x - 6 * s, 236);
+    g.fillTriangle(x + 8 * s, 256, x + 18 * s, 258, x + 6 * s, 236);
+    // canopy: dark base, mid, sunlit tops
+    const blobs = [[0, -140, 52], [-40, -115, 36], [40, -115, 36], [-22, -98, 30], [24, -96, 30]];
+    g.fillStyle(0x24602c);
+    blobs.forEach(([dx, dy, r]) => g.fillCircle(x + dx * s, 260 + dy * s, (r + 3) * s));
     g.fillStyle(0x3f8f45);
-    g.fillCircle(x, 260 - 140 * s, 52 * s);
-    g.fillCircle(x - 40 * s, 260 - 115 * s, 36 * s);
-    g.fillCircle(x + 40 * s, 260 - 115 * s, 36 * s);
-    g.fillStyle(0x55a85a);
-    g.fillCircle(x - 12 * s, 260 - 158 * s, 26 * s);
-    g.fillStyle(0xe8352f);
-    [[-20, -130], [18, -150], [30, -112], [-36, -108], [4, -120]].forEach(([dx, dy]) => g.fillCircle(x + dx * s, 260 + dy * s, 5 * s));
+    blobs.forEach(([dx, dy, r]) => g.fillCircle(x + dx * s - 2 * s, 260 + dy * s - 2 * s, r * s));
+    g.fillStyle(0x5cae5a);
+    [[-12, -158, 26], [-46, -126, 18], [30, -130, 18], [6, -150, 20]].forEach(([dx, dy, r]) => g.fillCircle(x + dx * s, 260 + dy * s, r * s));
+    g.fillStyle(0x8fd47a, 0.8);
+    [[-18, -166, 10], [-50, -132, 7], [24, -140, 8]].forEach(([dx, dy, r]) => g.fillCircle(x + dx * s, 260 + dy * s, r * s));
+    // forbidden fruit, glossy
+    [[-20, -130], [18, -150], [30, -112], [-36, -108], [4, -120], [-6, -96]].forEach(([dx, dy]) => {
+      g.fillStyle(0x9a1a16);
+      g.fillCircle(x + dx * s, 260 + dy * s, 5.5 * s);
+      g.fillStyle(0xe8352f);
+      g.fillCircle(x + dx * s - 0.5 * s, 260 + dy * s - 0.5 * s, 4.6 * s);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillCircle(x + dx * s - 2 * s, 260 + dy * s - 2 * s, 1.4 * s);
+    });
+  });
+  // flowers in the grass
+  [[20, 0xffffff], [150, 0xffe14d], [320, 0xff9fd0], [470, 0xffffff]].forEach(([x, c]) => {
+    g.fillStyle(c);
+    [[-3, 0], [3, 0], [0, -3], [0, 3]].forEach(([dx, dy]) => g.fillCircle(x + dx, 252 + dy, 2.2));
+    g.fillStyle(0xffc23a);
+    g.fillCircle(x, 252, 1.6);
   });
 }
 
 function drawClouds(g) {
-  g.fillStyle(0xffffff, 0.9);
+  paintClouds(g, 0xffffff, 0.95);
+}
+
+// painted cumulus: shadowed underside, bright body, rim light
+export function paintClouds(g, color, alpha) {
+  const under = shade(color, -0.18);
   [[80, 70, 1], [300, 40, 0.7], [440, 110, 0.9]].forEach(([x, y, s]) => {
-    g.fillEllipse(x, y, 120 * s, 40 * s);
-    g.fillEllipse(x - 30 * s, y + 6 * s, 70 * s, 30 * s);
+    g.fillStyle(under, alpha * 0.9);
+    g.fillEllipse(x, y + 6 * s, 124 * s, 36 * s);
+    g.fillEllipse(x - 32 * s, y + 10 * s, 70 * s, 26 * s);
+    g.fillStyle(color, alpha);
+    g.fillEllipse(x, y, 116 * s, 34 * s);
+    g.fillEllipse(x - 30 * s, y + 3 * s, 64 * s, 26 * s);
     g.fillEllipse(x + 26 * s, y - 12 * s, 70 * s, 40 * s);
+    g.fillEllipse(x - 8 * s, y - 16 * s, 46 * s, 30 * s);
+    g.fillStyle(shade(color, 0.6), alpha * 0.7);
+    g.fillEllipse(x + 20 * s, y - 22 * s, 40 * s, 14 * s);
+    g.fillEllipse(x - 12 * s, y - 24 * s, 24 * s, 10 * s);
   });
 }
 
@@ -641,9 +781,11 @@ export function createTextures(scene) {
   const sky = scene.textures.createCanvas('sky', 4, 256);
   const ctx = sky.getContext();
   const grad = ctx.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, '#4f9fe8');
-  grad.addColorStop(0.6, '#a9dcff');
-  grad.addColorStop(1, '#ffe7b8');
+  grad.addColorStop(0, '#3a86d8');
+  grad.addColorStop(0.35, '#6fb4f0');
+  grad.addColorStop(0.62, '#b3e0ff');
+  grad.addColorStop(0.85, '#fff0cf');
+  grad.addColorStop(1, '#ffd9a0');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 4, 256);
   if (scene.sys.game.renderer) sky.refresh();

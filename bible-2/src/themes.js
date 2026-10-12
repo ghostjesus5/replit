@@ -1,7 +1,7 @@
 // One look per world. Each theme draws its own terrain and backdrop under
 // keys like `ground_egypt`, so the game scene just asks for `${part}_${theme}`.
 
-import { make, poly, drawHills } from './textures.js';
+import { make, poly, drawHills, shade, glow, paintClouds } from './textures.js';
 import { MORMON_THEMES } from './themes-mormon.js';
 
 export const THEMES = {
@@ -20,7 +20,7 @@ export const THEMES = {
     water: [0x2f7fd0, 0x7cc7ff],
   },
   egypt: {
-    sky: ['#e98b3a', '#f8c477', '#fff0c9'],
+    sky: ['#c8642a', '#e98b3a', '#f8c477', '#ffe2a8', '#fff3d6'],
     clouds: [0xfff1d6, 0.6],
     far: 0xe8c17a,
     near: 0xd9a75a,
@@ -34,7 +34,7 @@ export const THEMES = {
     water: [0x3f8fb0, 0x8fd0e0],
   },
   redsea: {
-    sky: ['#2c6fb5', '#79b8e6', '#f6dcb0'],
+    sky: ['#1d5596', '#2c6fb5', '#79b8e6', '#cfe6f2', '#f6dcb0'],
     clouds: [0xffffff, 0.75],
     far: 0x2f78b8,
     near: 0x3c8fcf,
@@ -48,7 +48,7 @@ export const THEMES = {
     water: [0x1f5fa8, 0x6fc3f0],
   },
   jericho: {
-    sky: ['#5e8fc7', '#b9d3e8', '#f1dfc0'],
+    sky: ['#4a7cb8', '#5e8fc7', '#b9d3e8', '#e8e2d2', '#f1d6a8'],
     clouds: [0xffffff, 0.8],
     far: 0xcbb38a,
     near: 0xb2956a,
@@ -62,7 +62,7 @@ export const THEMES = {
     water: [0x3f8fb0, 0x8fd0e0],
   },
   babel: {
-    sky: ['#3d3b7a', '#a77fb8', '#f4c49a'],
+    sky: ['#25234f', '#3d3b7a', '#a77fb8', '#e8a6a0', '#f4c49a'],
     clouds: [0xf6dcef, 0.6],
     far: 0x9b7aa8,
     near: 0x7a5f86,
@@ -76,7 +76,7 @@ export const THEMES = {
     water: [0x3f5fb0, 0x8fa0e0],
   },
   revelation: {
-    sky: ['#1a0608', '#6a1410', '#ff7a2a'],
+    sky: ['#0a0204', '#1a0608', '#6a1410', '#c43a14', '#ff8a2a'],
     clouds: [0x3a1a1a, 0.85],
     far: 0x3a1210,
     near: 0x24090a,
@@ -143,6 +143,13 @@ function drawTop(g, t) {
     g.lineBetween(20, 34, 16, 44);
     g.lineBetween(44, 26, 50, 40);
   }
+  // shared polish: crisp sunlit lip and a soft shadow under the top layer
+  g.fillStyle(shade(topLight, 0.35), 0.9);
+  g.fillRect(0, 0, 64, 2);
+  if (t.topStyle !== 'brick') {
+    g.fillStyle(shade(dirt, -0.3), 0.35);
+    g.fillRect(0, 22, 64, 4);
+  }
 }
 
 function drawDirt(g, t) {
@@ -182,6 +189,10 @@ function drawStone(g, t, cracked = false, trim = false) {
     g.lineBetween(20, 9, 26, 22);
     g.lineBetween(46, 6, 42, 18);
   }
+  g.fillStyle(shade(light, 0.4), 0.9);
+  g.fillRect(2, 1, 60, 2);
+  g.fillStyle(shade(dark, -0.2), 0.5);
+  g.fillRect(0, 21, 64, 3);
   if (trim) {
     g.fillStyle(0xffd447);
     g.fillRect(0, 0, 64, 4);
@@ -232,43 +243,79 @@ function drawWater(g, [deep, light]) {
 }
 
 function drawClouds(g, [color, alpha]) {
-  g.fillStyle(color, alpha);
-  [[80, 70, 1], [300, 40, 0.7], [440, 110, 0.9]].forEach(([x, y, s]) => {
-    g.fillEllipse(x, y, 120 * s, 40 * s);
-    g.fillEllipse(x - 30 * s, y + 6 * s, 70 * s, 30 * s);
-    g.fillEllipse(x + 26 * s, y - 12 * s, 70 * s, 40 * s);
-  });
+  paintClouds(g, color, alpha);
+}
+
+// distant hills sink into a soft mist toward their feet
+function drawHazyHills(g, w, h, color, amp, base, waves, mist) {
+  drawHills(g, w, h, color, amp, base, waves);
+  const top = base + amp * 1.4;
+  const steps = 6;
+  for (let i = 0; i < steps; i++) {
+    const y = top + ((h - 3 - top) * i) / steps;
+    g.fillStyle(mist, 0.08 + i * 0.05);
+    g.fillRect(0, y, w, (h - 3 - top) / steps + 1);
+  }
 }
 
 // ---------------------------------------------------------------- backdrops (512 x 260, base at the bottom)
 
 const PROPS = {
   pyramids(g) {
+    // sun disc low on the horizon
+    glow(g, 230, 150, 60, 0xfff0c9, 0.08, 6);
+    g.fillStyle(0xfff3d6, 0.9);
+    g.fillCircle(230, 150, 22);
     [[110, 170, 0.9], [300, 230, 1.2], [450, 120, 0.6]].forEach(([x, h, s]) => {
       const w = h * 1.5;
-      g.fillStyle(0xe2b56c);
-      g.fillTriangle(x - w / 2, 256, x, 256 - h, x + w / 2, 256);
-      g.fillStyle(0xc79552);
-      g.fillTriangle(x, 256 - h, x + w / 2, 256, x + w * 0.12, 256);
-      g.lineStyle(1, 0xb7843f, 0.5);
-      for (let y = 256 - h + 20 * s; y < 256; y += 18 * s) {
-        const half = ((y - (256 - h)) / h) * (w / 2);
-        g.lineBetween(x - half, y, x + half, y);
+      const apex = 256 - h;
+      // sunlit west face
+      g.fillStyle(0xf0c983);
+      g.fillTriangle(x - w / 2, 256, x, apex, x + w * 0.12, 256);
+      // shaded east face
+      g.fillStyle(0xb7843f);
+      g.fillTriangle(x, apex, x + w / 2, 256, x + w * 0.12, 256);
+      // ridge highlight
+      g.lineStyle(2, 0xfff0c9, 0.9);
+      g.lineBetween(x, apex, x + w * 0.12, 256);
+      // stone courses
+      for (let y = apex + 20 * s; y < 256; y += 14 * s) {
+        const half = ((y - apex) / h) * (w / 2);
+        const split = x + ((y - apex) / h) * w * 0.12;
+        g.lineStyle(1, 0xc79552, 0.6);
+        g.lineBetween(x - half, y, split, y);
+        g.lineStyle(1, 0x8f6430, 0.5);
+        g.lineBetween(split, y, x + half, y);
       }
+      // gold capstone
+      g.fillStyle(0xffd447);
+      g.fillTriangle(x - 7 * s, apex + 10 * s, x, apex, x + 7 * s, apex + 10 * s);
+      g.fillStyle(0xfff3b0);
+      g.fillTriangle(x - 4 * s, apex + 8 * s, x, apex, x, apex + 9 * s);
     });
     // palms
     [[40, 0.9], [210, 1], [380, 0.8]].forEach(([x, s]) => {
-      g.lineStyle(7 * s, 0x7a5a32);
-      g.beginPath();
-      g.moveTo(x, 256);
-      g.lineTo(x + 6 * s, 200 * (2 - s) - 40);
-      g.strokePath();
       const tx = x + 6 * s;
       const ty = 200 * (2 - s) - 40;
-      g.fillStyle(0x4f8f3a);
+      g.lineStyle(8 * s, 0x5a3e20);
+      g.lineBetween(x, 256, tx, ty);
+      g.lineStyle(5 * s, 0x8a6438);
+      g.lineBetween(x - 1, 256, tx - 1, ty);
+      for (let yy = ty + 10; yy < 256; yy += 10) {
+        const k = (yy - ty) / (256 - ty);
+        const cx = tx + (x - tx) * k;
+        g.lineStyle(1.5, 0x5a3e20, 0.8);
+        g.lineBetween(cx - 4 * s, yy, cx + 4 * s, yy - 2);
+      }
       [-2.6, -1.9, -1.2, -0.5, 0.2].forEach((a) => {
-        g.fillTriangle(tx, ty, tx + Math.cos(a) * 50 * s, ty + Math.sin(a) * 30 * s + 20, tx + Math.cos(a + 0.3) * 40 * s, ty + Math.sin(a + 0.3) * 30 * s + 26);
+        g.fillStyle(0x2f6a28);
+        g.fillTriangle(tx, ty, tx + Math.cos(a) * 54 * s, ty + Math.sin(a) * 30 * s + 22, tx + Math.cos(a + 0.3) * 42 * s, ty + Math.sin(a + 0.3) * 30 * s + 28);
+        g.fillStyle(0x5aa040);
+        g.fillTriangle(tx, ty, tx + Math.cos(a) * 50 * s, ty + Math.sin(a) * 30 * s + 20, tx + Math.cos(a + 0.18) * 40 * s, ty + Math.sin(a + 0.18) * 30 * s + 22);
       });
+      g.fillStyle(0x6a4a20);
+      g.fillCircle(tx - 3, ty + 4, 3 * s);
+      g.fillCircle(tx + 3, ty + 5, 3 * s);
     });
   },
   rocks(g) {
@@ -302,31 +349,92 @@ const PROPS = {
     g.fillRoundedRect(160, 200, 40, 56, { tl: 20, tr: 20, bl: 0, br: 0 });
   },
   ziggurats(g) {
-    const tower = (x, base, tiers, step) => {
+    const tower = (x, base, tiers, step, s) => {
       for (let i = 0; i < tiers; i++) {
         const w = base - i * step * 2;
         const y = 256 - (i + 1) * 30;
+        // tier body with lit left and shaded right
         g.fillStyle(i % 2 ? 0xb86a42 : 0xa35a35);
         g.fillRect(x - w / 2, y, w, 30);
-        g.fillStyle(0x7a3c20);
-        for (let wx = x - w / 2 + 8; wx < x + w / 2 - 8; wx += 22) g.fillRect(wx, y + 10, 8, 12);
+        g.fillStyle(0xd99067, 0.8);
+        g.fillRect(x - w / 2, y, w * 0.3, 30);
+        g.fillStyle(0x5a2a16, 0.45);
+        g.fillRect(x + w * 0.22, y, w * 0.28, 30);
+        // ledge highlight and shadow
+        g.fillStyle(0xf0b88a);
+        g.fillRect(x - w / 2, y, w, 3);
+        g.fillStyle(0x4a2010, 0.5);
+        g.fillRect(x - w / 2, y + 27, w, 3);
+        // arched windows, some lit
+        for (let wx = x - w / 2 + 8; wx < x + w / 2 - 8; wx += 22) {
+          g.fillStyle(0x3a1a10);
+          g.fillRoundedRect(wx, y + 9, 8, 14, { tl: 4, tr: 4, bl: 0, br: 0 });
+          if ((wx + i * 7) % 3 < 1) {
+            g.fillStyle(0xffc46a, 0.85);
+            g.fillRoundedRect(wx + 1, y + 11, 6, 11, { tl: 3, tr: 3, bl: 0, br: 0 });
+          }
+        }
+      }
+      // spiral ramp
+      g.lineStyle(3 * s, 0xe0a070, 0.7);
+      for (let i = 0; i < tiers - 1; i++) {
+        const w = base - i * step * 2;
+        const y = 256 - (i + 1) * 30;
+        g.lineBetween(x - w / 2 + 4, y + 28, x + w / 2 - 10, y + 2);
       }
     };
-    tower(140, 220, 8, 12);
-    tower(400, 150, 5, 13);
+    tower(140, 220, 8, 12, 1);
+    tower(400, 150, 5, 13, 0.8);
+    // unfinished top with scaffolding and a crane, very ambitious
     g.fillStyle(0xd99067);
     g.fillTriangle(140 - 12, 256 - 240, 140 + 12, 256 - 240, 140, 256 - 262 + 6);
+    g.lineStyle(2, 0x6a4a2a);
+    g.lineBetween(118, 16, 118, 34);
+    g.lineBetween(162, 10, 162, 34);
+    g.lineBetween(118, 22, 162, 22);
+    g.lineBetween(162, 10, 196, 16);
+    g.lineBetween(196, 16, 196, 30);
+    // birds
+    g.lineStyle(2, 0x3d3b7a, 0.8);
+    [[250, 50], [270, 40], [330, 70]].forEach(([bx, by]) => {
+      g.lineBetween(bx - 6, by - 3, bx, by);
+      g.lineBetween(bx, by, bx + 6, by - 3);
+    });
   },
   spires(g) {
+    // lava glow rising from below
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle(0xff5a1f, 0.06 + i * 0.03);
+      g.fillRect(0, 196 + i * 10, 512, 60 - i * 10);
+    }
     [[40, 180], [120, 230], [200, 140], [300, 250], [390, 160], [470, 210]].forEach(([x, h]) => {
+      // silhouette with a hot rim on the lava side
+      g.fillStyle(0x3a0c08);
+      poly(g, [[x - 32, 256], [x - 10, 256 - h * 0.6], [x - 5, 256 - h - 2], [x + 8, 256 - h * 0.7], [x + 32, 256]]);
       g.fillStyle(0x0e0406);
-      poly(g, [[x - 30, 256], [x - 8, 256 - h * 0.6], [x - 4, 256 - h], [x + 6, 256 - h * 0.7], [x + 30, 256]]);
-      g.fillStyle(0xff5a1f, 0.6);
-      g.fillCircle(x - 2, 256 - h * 0.45, 3);
-      g.fillCircle(x + 6, 256 - h * 0.25, 2);
+      poly(g, [[x - 28, 256], [x - 8, 256 - h * 0.6], [x - 4, 256 - h], [x + 6, 256 - h * 0.7], [x + 28, 256]]);
+      // lava veins
+      g.lineStyle(2, 0xff5a1f, 0.85);
+      g.lineBetween(x - 2, 256 - h * 0.55, x + 4, 256 - h * 0.35);
+      g.lineBetween(x + 4, 256 - h * 0.35, x - 1, 256 - h * 0.15);
+      g.lineStyle(1, 0xffd447, 0.8);
+      g.lineBetween(x - 2, 256 - h * 0.55, x + 3, 256 - h * 0.4);
+      // windows that glow, for some reason
+      glow(g, x - 2, 256 - h * 0.45, 8, 0xff7a2a, 0.12, 3);
+      g.fillStyle(0xffc23a);
+      g.fillCircle(x - 2, 256 - h * 0.45, 2.5);
+      g.fillCircle(x + 6, 256 - h * 0.25, 1.8);
+      // underlit base
+      g.fillStyle(0xff7a2a, 0.35);
+      poly(g, [[x - 28, 256], [x - 18, 236], [x + 18, 236], [x + 28, 256]]);
     });
-    g.fillStyle(0xff7a2a, 0.35);
+    // embers drifting up
+    g.fillStyle(0xffc23a, 0.9);
+    [[70, 120], [160, 90], [250, 140], [340, 60], [430, 110], [500, 80], [20, 70]].forEach(([ex, ey]) => g.fillCircle(ex, ey, 1.6));
+    g.fillStyle(0xff7a2a, 0.5);
     g.fillRect(0, 244, 512, 12);
+    g.fillStyle(0xffd447, 0.6);
+    g.fillRect(0, 250, 512, 3);
   },
 };
 
@@ -335,9 +443,9 @@ function makeSky(scene, key, stops) {
   const sky = scene.textures.createCanvas(key, 4, 256);
   const ctx = sky.getContext();
   const grad = ctx.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, stops[0]);
-  grad.addColorStop(0.6, stops[1]);
-  grad.addColorStop(1, stops[2]);
+  // three stops keep the old 0 / 0.6 / 1 spacing, longer lists spread evenly
+  const at = stops.length === 3 ? [0, 0.6, 1] : stops.map((_, i) => i / (stops.length - 1));
+  stops.forEach((c, i) => grad.addColorStop(at[i], c));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 4, 256);
   if (scene.sys.game.renderer) sky.refresh();
@@ -371,7 +479,7 @@ export function createThemeTextures(scene) {
     if (id === 'eden') continue;
     makeSky(scene, k.sky, t.sky);
     make(scene, k.clouds, 512, 160, (g) => drawClouds(g, t.clouds));
-    make(scene, k.far, 512, 220, (g) => drawHills(g, 512, 220, t.far, 26, 110, 1));
+    make(scene, k.far, 512, 220, (g) => drawHazyHills(g, 512, 220, t.far, 26, 110, 1, t.mist ?? shade(t.far, 0.45)));
     make(scene, k.near, 512, 200, (g) => drawHills(g, 512, 200, t.near, 22, 90, 2));
     make(scene, k.props, 512, 260, (g) => (typeof t.prop === 'function' ? t.prop(g) : PROPS[t.prop](g)));
     make(scene, k.ground, 64, 64, (g) => drawTop(g, t));
