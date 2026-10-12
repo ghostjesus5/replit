@@ -240,7 +240,7 @@ export default class UIScene extends Phaser.Scene {
     const combo = Number.isFinite(s.combo) ? s.combo : 0;
     if (mult > 1 || combo >= 5) {
       this.comboText.setText(mult > 1 ? `x${mult} COMBO ${combo}` : `COMBO ${combo}`);
-      this.comboBg.width = this.comboText.width + 22;
+      this.comboBg.setSize(this.comboText.width + 22, 34).setOrigin(1, 0.5);
       this.comboBadge.setVisible(true);
       if (mult > this.lastMult) {
         this.tweens.killTweensOf(this.comboBadge);

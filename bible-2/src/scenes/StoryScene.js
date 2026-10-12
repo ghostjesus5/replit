@@ -161,6 +161,12 @@ export default class StoryScene extends Phaser.Scene {
       this.lineTexts.push({ verse, t, baseX: textX });
       y += t.height + size * 0.55;
     });
+    // center the passage in the space under the heading
+    const slack = Math.max(0, (bottom - top - (y - top)) / 2);
+    this.lineTexts.forEach(({ verse, t }) => {
+      verse.y += slack;
+      t.y += slack;
+    });
 
     // skip, top right of the page
     const skip = add(

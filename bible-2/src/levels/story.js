@@ -36,7 +36,7 @@ export const BIBLE_STORY = {
 };
 
 export const BIBLE_OUTRO = [
-  'And on the seventh world, He rested.',
+  'Six worlds. Then on the seventh day, He rested.',
   'The Bible was cleaned up. Every chapter. Every verse.',
   'The beast was smitten. The tower was demolished. The serpent was evicted.',
   'The unicorn has been put out to pasture. A very nice pasture.',
