@@ -155,6 +155,9 @@ export default class TitleScene extends Phaser.Scene {
     const title = this.add
       .text(tx, -18, c.title, { fontFamily: FONT, fontSize: c.title.length > 10 ? '24px' : '32px', fontStyle: 'bold', color: mormon ? '#fff6d6' : '#1b1430' })
       .setOrigin(0, 0.5);
+    // long campaign names shrink to fit the card instead of running off the edge
+    const room = w / 2 - tx - 14;
+    if (title.width > room) title.setScale(room / title.width);
     const sub = this.add.text(tx, 16, c.sub, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: mormon ? '#c9e0ff' : '#5a3a1f' }).setOrigin(0, 0.5);
     const ride = this.add.text(tx, 38, 'TAP TO RIDE', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: mormon ? '#ffd447' : '#b3261e' }).setOrigin(0, 0.5);
     card.add([shade, bg, icon, title, sub, ride]);

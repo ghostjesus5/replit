@@ -51,6 +51,25 @@ Bosses ride along on the right side of the screen while you keep running. Every 
 
 There's also a world map with progress saved on the device, an "unlock all levels" switch for playtesters, a Next Level button on the clear screen, and the fake rewarded-ad resurrect from the first build.
 
+## Another Testament (the Mormon one)
+
+A second campaign on the same engine, picked from the title screen. Joseph Smith in a top hat rides a tapir wearing a blanket that says HORSE (apologists say the Book of Mormon's horses were tapirs), fires twin pepperbox pistols, and his laser is "PEEP STONE ENGAGED." Three worlds, nine levels, three bosses:
+
+| World | Levels | Boss |
+| --- | --- | --- |
+| Palmyra | farmland, money-digging holes, the Hill Cumorah | THE LOST 116 PAGES |
+| Zarahemla | jungle, "LOCATION UNKNOWN / ARCHAEOLOGICAL EVIDENCE: 0" billboards, horses, elephants, steel swords and honeybees that shouldn't be there | THE CURELOM, then THE CUMOM |
+| Kirtland | the Anti-Banking Co, worthless notes, GENUINE MUMMIES tents | THE KIRTLAND SAFETY SOCIETY, then THE MUMMIES |
+
+The jokes stay on documented history and textual claims (seer stone in a hat, the plates nobody could see, Reformed Egyptian, anachronisms, the Kinderhook plates, the Book of Abraham papyri, the 1837 bank collapse). It stays away from believers, race, polygamy, temple rites and Carthage. It's built entirely from skins: `levels/mormon.js` sets `hero`, `enemySkins` and `pickupSkins` per level, and the art, themes and bosses live in `art-mormon.js`, `themes-mormon.js` and `bosses-mormon.js`.
+
+## Sound, story, scoring
+
+- `src/audio.js`: procedural Web Audio, no files. Every action has a sound, and every world has its own choir-over-metal-guitar track (faster and heavier for bosses). A hymn with banjo plays for the Mormon worlds, and an organ loop plays on the menus. M or the pause menu mutes it.
+- `src/scenes/StoryScene.js` and `src/levels/story.js`: a scripture-page story card before each world ("THE BOOK OF EDEN, CHAPTER 1") and an ending after each campaign's final boss.
+- Scoring: kill chains build a combo multiplier up to x5. Each level awards up to 3 stars (finished, no deaths, 80% of halos), and your best stars are saved.
+- Feel: hit-stop, squash and stretch, landing and run dust, tracers, enemy death pops, ambient particles for each world, and a slow-motion boss finish.
+
 ## Where things live
 
 ```
