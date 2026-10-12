@@ -1,7 +1,7 @@
 // Placeholder art for everything added after Eden 1-1: new enemies, projectiles,
 // power-ups and bosses. Everything faces left, toward the hero.
 
-import { make, poly, drawBubble } from './textures.js';
+import { make, poly, drawBubble, glow, shade, strokeCurve } from './textures.js';
 
 // ---------------------------------------------------------------- enemies
 
@@ -60,19 +60,40 @@ function wheel(g, x, y, r, spin) {
 }
 
 function horse(g, x, y, s, color, mane, stride) {
+  const rim = shade(color, -0.45);
+  g.lineStyle(7 * s, rim);
+  const legs0 = [[-16, stride], [-8, -stride], [14, -stride], [22, stride]];
+  legs0.forEach(([dx, a]) => g.lineBetween(x + dx * s, y + 8 * s, x + dx * s + Math.sin(a) * 20 * s, y + 31 * s));
+  g.fillStyle(rim);
+  g.fillEllipse(x, y, 58 * s, 28 * s);
+  poly(g, [[x - 22 * s, y - 6 * s], [x - 36 * s, y - 32 * s], [x - 25 * s, y - 37 * s], [x - 10 * s, y - 10 * s]]);
+  g.fillEllipse(x - 36 * s, y - 30 * s, 26 * s, 16 * s);
   g.fillStyle(color);
   g.fillEllipse(x, y, 54 * s, 24 * s);
   poly(g, [[x - 20 * s, y - 6 * s], [x - 34 * s, y - 30 * s], [x - 26 * s, y - 34 * s], [x - 12 * s, y - 10 * s]]);
   g.fillEllipse(x - 36 * s, y - 30 * s, 22 * s, 12 * s);
   g.fillStyle(mane);
   poly(g, [[x - 24 * s, y - 34 * s], [x - 10 * s, y - 14 * s], [x - 16 * s, y - 10 * s], [x - 30 * s, y - 32 * s]]);
+  // muscle highlight along the back and neck
+  g.fillStyle(shade(color, 0.25), 0.8);
+  g.fillEllipse(x + 2 * s, y - 6 * s, 40 * s, 7 * s);
+  g.fillEllipse(x - 36 * s, y - 34 * s, 14 * s, 4 * s);
+  g.fillStyle(shade(color, -0.25), 0.7);
+  g.fillEllipse(x + 2 * s, y + 7 * s, 44 * s, 8 * s);
+  glow(g, x - 40 * s, y - 32 * s, 5 * s, 0xff3b30, 0.18, 3);
   g.fillStyle(0xff3b30);
   g.fillCircle(x - 40 * s, y - 32 * s, 2 * s);
+  g.fillStyle(0xffe14d);
+  g.fillCircle(x - 40.5 * s, y - 32.5 * s, 0.8 * s);
   g.lineStyle(5 * s, color);
   const legs = [[-16, stride], [-8, -stride], [14, -stride], [22, stride]];
   legs.forEach(([dx, a]) => g.lineBetween(x + dx * s, y + 8 * s, x + dx * s + Math.sin(a) * 20 * s, y + 30 * s));
-  g.lineStyle(4 * s, mane);
-  g.lineBetween(x + 26 * s, y - 4 * s, x + 40 * s, y + 10 * s);
+  // hooves
+  g.fillStyle(rim);
+  legs.forEach(([dx, a]) => g.fillEllipse(x + dx * s + Math.sin(a) * 20 * s, y + 31 * s, 6 * s, 3 * s));
+  // flowing tail
+  strokeCurve(g, 5 * s, mane, [x + 26 * s, y - 4 * s], [x + 44 * s, y - 2 * s], [x + 40 * s, y + 14 * s]);
+  strokeCurve(g, 2 * s, shade(mane, 0.4), [x + 27 * s, y - 5 * s], [x + 42 * s, y - 4 * s], [x + 41 * s, y + 10 * s], 0.8);
 }
 
 function chariot(g, f) {
@@ -384,10 +405,18 @@ function trumpetIcon(g) {
 // ---------------------------------------------------------------- bosses
 
 function bossSerpent(g, open) {
+  g.fillStyle(0x0e2a12, 0.35);
+  g.fillEllipse(200, 244, 170, 14);
   // coils
   [[200, 220, 140, 50], [180, 190, 120, 44], [210, 160, 100, 40]].forEach(([x, y, w, h], i) => {
+    g.fillStyle(0x123a1a);
+    g.fillEllipse(x, y, w + 6, h + 6);
     g.fillStyle(i % 2 ? 0x2f8a3d : 0x3fa34d);
     g.fillEllipse(x, y, w, h);
+    g.fillStyle(0x6fcf6a, 0.6);
+    g.fillEllipse(x - w * 0.1, y - h * 0.28, w * 0.6, h * 0.18);
+    g.fillStyle(0x1f6a2a, 0.8);
+    for (let k = -2; k <= 2; k++) g.fillTriangle(x + k * w * 0.16 - 6, y - h * 0.05, x + k * w * 0.16 + 6, y - h * 0.05, x + k * w * 0.16, y + h * 0.12);
     g.fillStyle(0xb7e07a);
     g.fillEllipse(x, y + h * 0.25, w * 0.8, h * 0.3);
   });
@@ -397,6 +426,8 @@ function bossSerpent(g, open) {
   g.fillStyle(0xb7e07a);
   poly(g, [[178, 150], [134, 72], [124, 78], [166, 156]]);
   // head
+  g.fillStyle(0x123a1a);
+  g.fillEllipse(110, 62, 116, open ? 76 : 62);
   g.fillStyle(0x2f8a3d);
   g.fillEllipse(110, 62, 110, open ? 70 : 56);
   g.fillStyle(0x3fa34d);
@@ -404,11 +435,26 @@ function bossSerpent(g, open) {
   // hood
   g.fillStyle(0x2f8a3d);
   poly(g, [[150, 30], [190, 20], [176, 80], [150, 90]]);
-  // eye
+  // hood markings
+  g.fillStyle(0xffe14d, 0.7);
+  g.fillCircle(166, 50, 6);
+  g.fillStyle(0x123a1a);
+  g.fillCircle(166, 50, 3);
+  // heavy brow ridge + glowing eye
+  glow(g, 96, 46, 20, 0xffe14d, 0.1, 4);
   g.fillStyle(0xffe14d);
   g.fillEllipse(96, 46, 22, 14);
   g.fillStyle(0xd61f1f);
   g.fillEllipse(96, 46, 5, 13);
+  g.fillStyle(0xffffff);
+  g.fillCircle(91, 43, 2);
+  g.fillStyle(0x123a1a);
+  poly(g, [[80, 36], [112, 34], [110, 40], [84, 42]]);
+  g.fillStyle(0x6fcf6a, 0.7);
+  g.fillEllipse(120, 40, 50, 6);
+  // nostril
+  g.fillStyle(0x123a1a);
+  g.fillEllipse(64, 54, 6, 3);
   if (open) {
     g.fillStyle(0x5a0e0a);
     poly(g, [[56, 66], [130, 74], [70, 96]]);
@@ -427,8 +473,14 @@ function bossChariot(g, f) {
   horse(g, 96, 160, 1.6, 0x2a1d1a, 0xffd447, f ? -0.6 : 0.6);
   g.fillStyle(0xd9a330);
   poly(g, [[150, 80], [280, 60], [290, 180], [150, 180]]);
+  g.fillStyle(0x8a5a10);
+  poly(g, [[250, 66], [280, 60], [290, 180], [256, 180]]);
+  g.fillStyle(0xf0c860, 0.8);
+  poly(g, [[154, 96], [176, 94], [176, 178], [154, 178]]);
   g.fillStyle(0xffd447);
   g.fillRect(152, 84, 136, 12);
+  g.fillStyle(0xfff3b0);
+  g.fillRect(152, 84, 136, 3);
   g.fillStyle(0x2f7fd0);
   [[180, 130], [220, 130], [260, 130]].forEach(([x, y]) => g.fillCircle(x, y, 9));
   // the empty golden mask riding it
@@ -438,19 +490,32 @@ function bossChariot(g, f) {
   for (let y = 12; y < 70; y += 10) g.fillRect(204 + (y - 12) * 0.2, y, 58 - (y - 12) * 0.4, 4);
   g.fillStyle(0xffd447);
   g.fillEllipse(233, 44, 36, 40);
+  g.fillStyle(0xfff3b0, 0.8);
+  g.fillEllipse(222, 30, 10, 18);
   g.fillStyle(0x1b1430);
   g.fillEllipse(224, 40, 8, 4);
   g.fillEllipse(242, 40, 8, 4);
+  glow(g, 233, 41, 14, 0x7cf3ff, 0.1, 3);
+  g.fillStyle(0x7cf3ff);
+  g.fillCircle(224, 40, 1.5);
+  g.fillCircle(242, 40, 1.5);
   wheel(g, 230, 176, 30, f ? 0.5 : 0);
   g.fillStyle(0xff7a2a, 0.8);
   g.fillTriangle(262, 190, 290, 160, 296, 200);
 }
 
 function bossLeviathan(g, open) {
+  g.fillStyle(0x0a2a30);
+  poly(g, [[176, 284], [196, 120], [152, 54], [104, 68], [146, 140], [124, 284]]);
   g.fillStyle(0x1f5f6a);
   poly(g, [[170, 280], [190, 120], [150, 60], [110, 70], [150, 140], [130, 280]]);
   g.fillStyle(0x3a8a8a);
   poly(g, [[176, 270], [186, 130], [170, 110], [160, 270]]);
+  // belly plates
+  g.lineStyle(2, 0x0a2a30, 0.7);
+  for (let y = 150; y < 280; y += 16) g.lineBetween(156 + (280 - y) * 0.05, y, 178, y - 4);
+  g.fillStyle(0xbff0e6, 0.35);
+  poly(g, [[180, 260], [186, 140], [182, 134], [176, 260]]);
   // fins
   g.fillStyle(0x8fd0c0);
   [[190, 140], [196, 180], [194, 220]].forEach(([x, y]) => g.fillTriangle(x, y, x + 30, y - 20, x + 6, y + 20));
@@ -459,10 +524,18 @@ function bossLeviathan(g, open) {
   g.fillEllipse(110, 62, 130, open ? 80 : 64);
   g.fillStyle(0x3a8a8a);
   g.fillEllipse(116, 52, 110, 36);
+  // barnacles and scars
+  g.fillStyle(0xd8e8e0, 0.8);
+  [[140, 60], [150, 52], [132, 70]].forEach(([bx, by]) => g.fillCircle(bx, by, 3));
+  g.lineStyle(2, 0x0a2a30);
+  g.lineBetween(120, 70, 134, 82);
+  glow(g, 96, 44, 18, 0xffe14d, 0.12, 4);
   g.fillStyle(0xffe14d);
   g.fillCircle(96, 44, 9);
   g.fillStyle(0x1b1430);
-  g.fillCircle(94, 44, 4);
+  g.fillEllipse(94, 44, 4, 12);
+  g.fillStyle(0xffffff);
+  g.fillCircle(92, 40, 2);
   g.fillStyle(0x8fd0c0);
   g.fillTriangle(130, 30, 170, 0, 160, 40);
   g.fillTriangle(110, 26, 136, 2, 132, 32);
@@ -489,6 +562,14 @@ function bossGoliath(g, f) {
   g.fillRoundedRect(60, 100, 120, 130, 18);
   g.fillStyle(dark);
   for (let y = 120; y < 220; y += 22) g.fillRect(64, y, 112, 4);
+  g.fillStyle(0xe8b860, 0.8);
+  g.fillRoundedRect(70, 106, 30, 110, 10);
+  g.fillStyle(0xfff0c0, 0.7);
+  g.fillRect(76, 112, 6, 90);
+  g.fillStyle(0x4a3010, 0.5);
+  g.fillRoundedRect(150, 104, 28, 122, 12);
+  g.fillStyle(0xffd447);
+  for (let y = 130; y < 220; y += 22) [74, 120, 166].forEach((rx) => g.fillCircle(rx, y - 6, 2.5));
   // head
   g.fillStyle(0xc98a5a);
   g.fillEllipse(118, 70, 60, 64);
@@ -498,15 +579,31 @@ function bossGoliath(g, f) {
   poly(g, [[86, 64], [96, 26], [140, 24], [150, 64]]);
   g.fillStyle(0xd61f1f);
   poly(g, [[110, 26], [130, 0], [150, 20], [134, 30]]);
+  g.fillStyle(0xfff0c0, 0.8);
+  poly(g, [[94, 60], [100, 32], [110, 30], [104, 60]]);
+  // scowl
   g.fillStyle(0x1b1430);
   g.fillRect(96, 64, 14, 6);
+  g.fillStyle(0xff3b30);
+  g.fillCircle(100, 67, 1.8);
+  g.lineStyle(3, 0x3a2412);
+  g.lineBetween(92, 60, 112, 64);
   // shield arm (front)
   g.fillStyle(bronze);
   g.fillEllipse(54, 170, 70, 130);
+  g.fillStyle(0xe8b860, 0.7);
+  g.fillEllipse(44, 140, 22, 50);
   g.fillStyle(0xffd447);
   g.fillCircle(54, 170, 12);
+  g.fillStyle(0xfff3b0);
+  g.fillCircle(50, 166, 4);
   g.lineStyle(4, dark);
   g.strokeEllipse(54, 170, 60, 118);
+  g.lineStyle(3, 0x4a3010);
+  g.strokeEllipse(54, 170, 70, 130);
+  // dents from previous shepherds
+  g.fillStyle(dark);
+  [[40, 120], [66, 210], [36, 200]].forEach(([dx, dy]) => g.fillCircle(dx, dy, 3));
   // spear arm (back)
   g.lineStyle(8, 0x6b4a2b);
   g.lineBetween(196, 30, 186, 250);
@@ -530,9 +627,23 @@ function bossBabbler(g, open) {
   g.fillStyle(0x1b1430);
   g.fillEllipse(96, 110, 34, 22);
   g.fillEllipse(176, 110, 34, 22);
+  glow(g, 96, 110, 22, 0x7cf3ff, 0.12, 4);
+  glow(g, 176, 110, 22, 0x7cf3ff, 0.12, 4);
   g.fillStyle(0x7cf3ff);
   g.fillCircle(96, 110, 7);
   g.fillCircle(176, 110, 7);
+  g.fillStyle(0xffffff);
+  g.fillCircle(94, 108, 2.5);
+  g.fillCircle(174, 108, 2.5);
+  // carved shading and cracks
+  g.fillStyle(0xf0b88a, 0.7);
+  g.fillRoundedRect(58, 66, 40, 136, 18);
+  g.fillStyle(0x7a3c20, 0.4);
+  g.fillRoundedRect(196, 66, 30, 140, 14);
+  g.lineStyle(2, 0x5a2a16);
+  g.lineBetween(200, 70, 188, 96);
+  g.lineBetween(188, 96, 196, 120);
+  g.lineBetween(70, 190, 84, 172);
   g.fillStyle(0x7a3c20);
   g.fillRect(70, 86, 50, 8);
   g.fillRect(152, 86, 50, 8);
@@ -549,11 +660,19 @@ function horseman(g, f, { horseColor, mane, robe, item }) {
   g.fillStyle(robe);
   poly(g, [[100, 112], [130, 108], [128, 40], [104, 40]]);
   g.fillEllipse(116, 34, 36, 40);
+  g.fillStyle(shade(robe, 0.25), 0.8);
+  poly(g, [[104, 44], [110, 42], [108, 106], [102, 108]]);
+  g.fillStyle(shade(robe, -0.35), 0.8);
+  poly(g, [[124, 44], [128, 42], [130, 108], [124, 108]]);
   g.fillStyle(0x0a0204);
   g.fillEllipse(110, 36, 18, 22);
+  glow(g, 110, 34, 12, 0xff3b30, 0.14, 3);
   g.fillStyle(0xff3b30);
   g.fillCircle(106, 34, 2.5);
   g.fillCircle(114, 34, 2.5);
+  g.fillStyle(0xffe14d);
+  g.fillCircle(106, 34, 1);
+  g.fillCircle(114, 34, 1);
   if (item === 'bow') {
     g.lineStyle(5, 0xe8e0d0);
     g.beginPath();
@@ -591,17 +710,43 @@ function horseman(g, f, { horseColor, mane, robe, item }) {
 }
 
 function beastBody(g) {
+  glow(g, 200, 200, 190, 0xff5a1f, 0.04, 5);
+  g.fillStyle(0x2a0604);
+  g.fillEllipse(200, 200, 308, 148);
   g.fillStyle(0x6a1410);
   g.fillEllipse(200, 200, 300, 140);
   g.fillStyle(0x8a1c16);
   g.fillEllipse(200, 180, 260, 90);
   g.fillStyle(0x3a0806);
   [[100, 250], [160, 260], [240, 260], [300, 250]].forEach(([x, y]) => g.fillRect(x - 14, y - 20, 28, 40));
+  // scale rows
+  g.lineStyle(2, 0x3a0806, 0.6);
+  for (let row = 0; row < 3; row++) {
+    for (let x = 90 + row * 12; x < 320 - row * 12; x += 24) {
+      g.beginPath();
+      g.arc(x, 180 + row * 22, 10, 0, Math.PI, false);
+      g.strokePath();
+    }
+  }
+  g.fillStyle(0xc83a2a, 0.7);
+  g.fillEllipse(170, 160, 150, 22);
+  // claws
+  g.fillStyle(0xe8d9b0);
+  [[100, 250], [160, 260], [240, 260], [300, 250]].forEach(([x, y]) => {
+    g.fillTriangle(x - 14, y + 18, x - 8, y + 18, x - 18, y + 26);
+    g.fillTriangle(x - 2, y + 18, x + 4, y + 18, x - 4, y + 27);
+  });
+  g.fillStyle(0xc99a1a);
+  for (let x = 110; x < 300; x += 30) g.fillTriangle(x - 2, 141, x + 12, 106, x + 26, 141);
   g.fillStyle(0xffd447);
   for (let x = 110; x < 300; x += 30) g.fillTriangle(x, 140, x + 12, 110, x + 24, 140);
+  g.fillStyle(0xfff3b0);
+  for (let x = 110; x < 300; x += 30) g.fillTriangle(x + 4, 138, x + 12, 114, x + 12, 138);
 }
 
 function beastHead(g, open) {
+  g.fillStyle(0x2a0604);
+  g.fillEllipse(40, 34, 70, open ? 50 : 42);
   g.fillStyle(0x8a1c16);
   g.fillEllipse(40, 34, 66, open ? 46 : 38);
   g.fillStyle(0xb3261e);
@@ -611,10 +756,13 @@ function beastHead(g, open) {
   g.fillTriangle(40, 14, 50, 0, 50, 18);
   g.fillStyle(0xffd447);
   g.fillTriangle(56, 8, 64, 0, 66, 10);
+  glow(g, 30, 26, 11, 0xffe14d, 0.14, 3);
   g.fillStyle(0xffe14d);
   g.fillCircle(30, 26, 5);
   g.fillStyle(0x1a0608);
-  g.fillCircle(29, 26, 2);
+  g.fillEllipse(29, 26, 2, 7);
+  g.fillStyle(0xff8a8a, 0.6);
+  g.fillEllipse(48, 22, 26, 6);
   if (open) {
     g.fillStyle(0x1a0608);
     poly(g, [[6, 36], [50, 40], [12, 52]]);
